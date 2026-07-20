@@ -1,0 +1,301 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:'Segoe UI',sans-serif;
+    background:#eef2f7;
+    color:#333;
+}
+
+/* HEADER */
+
+header{
+    background:linear-gradient(135deg,#1565c0,#0d47a1);
+    color:white;
+    padding:35px;
+    text-align:center;
+    box-shadow:0 4px 10px rgba(0,0,0,0.2);
+}
+
+h1{
+    font-size:42px;
+    letter-spacing:1px;
+}
+
+/* MENU */
+
+.menu{
+    background:white;
+    padding:18px;
+    display:flex;
+    justify-content:center;
+    gap:25px;
+    flex-wrap:wrap;
+    box-shadow:0 2px 10px rgba(0,0,0,0.08);
+}
+
+.menu a{
+    text-decoration:none;
+    color:#1565c0;
+    font-weight:bold;
+    transition:0.3s;
+}
+
+.menu a:hover{
+    color:#0d47a1;
+    transform:scale(1.05);
+}
+
+/* CONTENEDORES */
+
+.dashboard-contenedor{
+    width:90%;
+    margin:40px auto;
+
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:25px;
+}
+
+/* CARDS */
+
+.card{
+    background:white;
+    border-radius:18px;
+    padding:35px;
+    text-align:center;
+    box-shadow:0 8px 20px rgba(0,0,0,0.08);
+    transition:0.3s;
+    position:relative;
+    overflow:hidden;
+}
+
+.card:hover{
+    transform:translateY(-8px);
+}
+
+.card::before{
+    content:'';
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:6px;
+    background:linear-gradient(90deg,#1565c0,#42a5f5);
+}
+
+.card h2{
+    font-size:45px;
+    color:#1565c0;
+    margin-bottom:10px;
+}
+
+.card p{
+    font-size:18px;
+    font-weight:600;
+    color:#555;
+}
+
+/* GRAFICO */
+
+.grafico-box{
+    width:90%;
+    margin:30px auto 60px;
+    background:white;
+    padding:40px;
+    border-radius:20px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.08);
+}
+
+.grafico-box h2{
+    text-align:center;
+    color:#1565c0;
+    margin-bottom:25px;
+    font-size:32px;
+}
+
+.grafico-box canvas{
+    max-width:100%;
+    height:auto !important;
+}
+
+/* FORMULARIOS */
+
+form{
+    background:white;
+    padding:30px;
+    border-radius:18px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.08);
+    margin-bottom:30px;
+}
+
+input,
+select{
+    width:100%;
+    padding:14px;
+    margin-top:10px;
+    margin-bottom:15px;
+    border:1px solid #ccc;
+    border-radius:10px;
+    font-size:16px;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    background:#1565c0;
+    color:white;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+button:hover{
+    background:#0d47a1;
+}
+
+/* TABLAS */
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 5px 15px rgba(0,0,0,0.08);
+    min-width:700px;
+}
+
+table th{
+    background:#1565c0;
+    color:white;
+    padding:15px;
+}
+
+table td{
+    padding:14px;
+    text-align:center;
+    border-bottom:1px solid #eee;
+}
+
+table tr:hover{
+    background:#f5f5f5;
+}
+
+/* TITULOS */
+
+h2{
+    color:#1565c0;
+    margin-bottom:20px;
+}
+
+/* RESPONSIVE */
+
+@media(max-width:768px){
+
+    body{
+        padding:10px;
+    }
+
+    h1{
+        font-size:28px;
+        text-align:center;
+    }
+
+    h2{
+        font-size:22px;
+        text-align:center;
+    }
+
+    .dashboard-contenedor{
+    width:100%;
+    padding:10px;
+}
+
+    .card{
+        padding:15px;
+    }
+
+    .card h2{
+        font-size:32px;
+    }
+
+    .card p{
+        font-size:16px;
+    }
+
+    .grafico-box{
+        padding:20px;
+    }
+
+    .grafico-box h2{
+        font-size:24px;
+    }
+
+    input,
+    button,
+    select{
+        width:100%;
+        font-size:14px;
+    }
+
+    table{
+        font-size:12px;
+    }
+
+    th, td{
+        padding:8px;
+    }
+
+}
+
+@media(max-width:768px){
+
+    .menu-toggle{
+        display:block;
+    }
+
+    .menu{
+        display:none;
+        flex-direction:column;
+        gap:10px;
+        padding:15px;
+    }
+
+    .menu.mostrar{
+        display:flex;
+    }
+
+}
+
+.ventas-contenedor{
+    max-width:900px;
+    margin:auto;
+}
+
+.tabla-responsive{
+    overflow-x:auto;
+}
+
+.tabla-responsive::-webkit-scrollbar{
+    height:16px;
+}
+
+.tabla-responsive::-webkit-scrollbar-track{
+    background:#ddd;
+}
+
+.tabla-responsive::-webkit-scrollbar-thumb{
+    background:#1f2937;
+    border-radius:10px;
+}
+
+.tabla-responsive::-webkit-scrollbar-thumb:hover{
+    background:#0f172a;
+}

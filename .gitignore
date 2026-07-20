@@ -1,0 +1,32 @@
+# Respaldos generados por el sistema
+respaldos/
+backups/
+
+# Archivos SQL que pueden contener datos privados
+database/*.sql
+!database/estructura_inventario_web.sql
+
+# Archivos comprimidos
+*.zip
+*.rar
+*.7z
+
+# Variables y configuraciones privadas
+.env
+.env.*
+!.env.example
+
+# Archivos temporales
+*.log
+*.tmp
+*.bak
+
+# Archivos del sistema operativo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Configuraciones locales de los editores
+.vscode/
+.idea/
+prueba_onedrive.txt
