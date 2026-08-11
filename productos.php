@@ -30,6 +30,15 @@ if(!isset($_SESSION['usuario'])){
 
 include("conexion.php");
 
+include("conexion.php");
+
+if (isset($_GET['compra']) && $_GET['compra'] == 'ok') {
+
+    echo "<div class='mensaje' style='color:green; font-weight:bold; text-align:center;'>
+            ✓ Compra registrada correctamente. Stock actualizado.
+          </div>";
+}
+
 if(isset($_POST['guardar'])){
 
     $nombre = $_POST['nombre'];

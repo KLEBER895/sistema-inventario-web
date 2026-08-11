@@ -8,9 +8,11 @@
 <a href="productos.php">Productos</a>
 <a href="clientes.php">Clientes</a>
 <a href="ventas.php">Ventas</a>
+<a href="compras.php">Compras</a>
+<a href="historial_ventas.php">Historial de Ventas</a>
+<a href="historial_compras.php">Historial de Compras</a>
 <a href="reportes.php">Reportes</a>
 <a href="lista_respaldos.php">Respaldos</a>
-<a href="historial_ventas.php">Historial</a>
 <a href="usuarios.php">Usuarios</a>
 <a href="perfil.php">Mi Perfil</a>
 <a href="logout.php">Cerrar Sesión</a>

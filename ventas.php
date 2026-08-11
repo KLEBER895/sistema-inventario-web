@@ -51,14 +51,28 @@ if(isset($_POST['vender'])){
         $iva = $subtotal * 0.15;
         $total = $subtotal + $iva;
 
-        $nuevo_stock = $stock_actual - $cantidad;
+       $nuevo_stock = $stock_actual - $cantidad;
 
-        mysqli_query($conexion,
+mysqli_begin_transaction($conexion);
+
+try {
+
+    // 1. Descontar stock
+    $actualizar_stock = mysqli_query(
+        $conexion,
         "UPDATE productos
-        SET stock='$nuevo_stock'
-        WHERE id='$producto_id'");
+         SET stock='$nuevo_stock'
+         WHERE id='$producto_id'"
+    );
 
-        mysqli_query($conexion,
+    if (!$actualizar_stock) {
+        throw new Exception("No se pudo actualizar el stock.");
+    }
+
+
+    // 2. Registrar la venta
+    $insertar_venta = mysqli_query(
+        $conexion,
         "INSERT INTO ventas
         (cliente_id, producto_id, cantidad,
         subtotal, iva, total, fecha)
@@ -66,28 +80,70 @@ if(isset($_POST['vender'])){
         VALUES
 
         ('$cliente_id','$producto_id','$cantidad',
-        '$subtotal','$iva','$total',NOW())");
+        '$subtotal','$iva','$total',NOW())"
+    );
 
-        echo "<div class='mensaje' style='color:green;'>
-                Venta realizada correctamente
-                <br><br>
-
-                <a href='factura.php?id=".mysqli_insert_id($conexion)."'
-                    target='_blank'>
-
-        <button>
-        Ver Factura
-        </button>
-
-        </a>
-              </div>";
-
-    }else{
-
-        echo "<div class='mensaje' style='color:red;'>
-                Stock insuficiente
-              </div>";
+    if (!$insertar_venta) {
+        throw new Exception("No se pudo registrar la venta.");
     }
+
+
+    // Guardar el ID de la venta ANTES de insertar el detalle
+    $venta_id = mysqli_insert_id($conexion);
+
+
+    // 3. Registrar el detalle de la venta
+    $insertar_detalle = mysqli_query(
+        $conexion,
+        "INSERT INTO detalle_ventas
+        (venta_id, producto_id, cantidad,
+        precio_unitario, subtotal)
+
+        VALUES
+
+        ('$venta_id','$producto_id','$cantidad',
+        '$precio','$subtotal')"
+    );
+
+    if (!$insertar_detalle) {
+        throw new Exception("No se pudo registrar el detalle de la venta.");
+    }
+
+
+    // 4. Confirmar toda la operación
+    mysqli_commit($conexion);
+
+
+    echo "<div class='mensaje' style='color:green;'>
+            Venta realizada correctamente
+            <br><br>
+
+            <a href='factura.php?id=".$venta_id."'
+               target='_blank'>
+
+                <button>
+                    Ver Factura
+                </button>
+
+            </a>
+          </div>";
+
+} catch (Exception $e) {
+
+    mysqli_rollback($conexion);
+
+    echo "<div class='mensaje' style='color:red;'>
+            Error: ".htmlspecialchars($e->getMessage())."
+          </div>";
+}
+
+}else{
+
+    echo "<div class='mensaje' style='color:red;'>
+            Stock insuficiente
+          </div>";
+}
+
 }
 
 ?>
