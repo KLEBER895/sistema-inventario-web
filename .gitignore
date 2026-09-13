@@ -30,3 +30,5 @@ Desktop.ini
 .vscode/
 .idea/
 prueba_onedrive.txt
+# Cache generado por DOMPDF
+dompdf/vendor/dompdf/dompdf/lib/fonts/*.json
