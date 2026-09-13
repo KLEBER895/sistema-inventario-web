@@ -2,109 +2,211 @@
 
 include("conexion.php");
 
-$id = $_GET['id'];
+// Obtener el ID de la venta de forma segura
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-$consulta = mysqli_query($conexion,
+if ($id <= 0) {
+    die("Factura no válida.");
+}
 
-"SELECT ventas.*,
-clientes.nombre AS cliente,
-clientes.cedula,
-clientes.telefono,
-productos.nombre AS producto,
-productos.precio_venta
+$consulta = mysqli_query(
+    $conexion,
+    "SELECT
+        ventas.id,
+        ventas.cliente_id,
+        ventas.producto_id,
+        ventas.cantidad,
+        ventas.subtotal,
+        ventas.iva,
+        ventas.total,
+        ventas.fecha,
 
-FROM ventas
+        clientes.nombre AS cliente,
+        clientes.cedula,
+        clientes.telefono,
 
-INNER JOIN clientes
-ON ventas.cliente_id = clientes.id
+        productos.nombre AS producto,
 
-INNER JOIN productos
-ON ventas.producto_id = productos.id
+        COALESCE(
+            detalle_ventas.precio_unitario,
+            ventas.subtotal / NULLIF(ventas.cantidad, 0)
+        ) AS precio_unitario
 
-WHERE ventas.id = '$id'"
+    FROM ventas
 
+    INNER JOIN clientes
+        ON ventas.cliente_id = clientes.id
+
+    INNER JOIN productos
+        ON ventas.producto_id = productos.id
+
+    LEFT JOIN detalle_ventas
+        ON detalle_ventas.venta_id = ventas.id
+        AND detalle_ventas.producto_id = ventas.producto_id
+
+    WHERE ventas.id = $id"
 );
 
+if (!$consulta) {
+    die("Error al consultar la factura.");
+}
+
 $factura = mysqli_fetch_assoc($consulta);
+
+if (!$factura) {
+    die("Factura no encontrada.");
+}
 
 ?>
 
 <!DOCTYPE html>
+
 <html lang="es">
 
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
 
 <title>Factura</title>
 
 <style>
 
 body{
+
     font-family: Arial;
     background: #f4f4f4;
     padding: 30px;
+
 }
 
 .factura{
+
     width: 700px;
     background: white;
     margin: auto;
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0px 0px 10px #ccc;
+
 }
 
 h1{
+
     color: #1565c0;
     text-align: center;
+
 }
 
 table{
+
     width: 100%;
     border-collapse: collapse;
     margin-top: 20px;
+
 }
 
 table, th, td{
+
     border: 1px solid #ccc;
+
 }
 
 th{
+
     background: #1565c0;
     color: white;
     padding: 10px;
+
 }
 
 td{
+
     padding: 10px;
     text-align: center;
+
 }
 
 .info{
+
     margin-top: 20px;
     line-height: 30px;
+
 }
 
-.total{
-    text-align: right;
-    margin-top: 20px;
-    font-size: 20px;
+.resumen{
+
+    width: 300px;
+    margin-left: auto;
+    margin-top: 25px;
+    font-size: 18px;
+
+}
+
+.resumen p{
+
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+
+}
+
+.resumen .total-final{
+
+    font-size: 21px;
     font-weight: bold;
+    border-top: 2px solid #333;
+    padding-top: 10px;
+
+}
+
+.boton-imprimir{
+
+    text-align: center;
+    margin-top: 30px;
+
 }
 
 button{
+
     padding: 10px 20px;
     background: #1565c0;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+
 }
 
 button:hover{
+
     background: #0d47a1;
+
+}
+
+@media print{
+
+    body{
+
+        background: white;
+        padding: 0;
+
+    }
+
+    .factura{
+
+        box-shadow: none;
+
+    }
+
+    .boton-imprimir{
+
+        display: none;
+
+    }
+
 }
 
 </style>
@@ -120,22 +222,22 @@ button:hover{
 <div class="info">
 
 <strong>Cliente:</strong>
-<?php echo $factura['cliente']; ?>
+<?php echo htmlspecialchars($factura['cliente']); ?>
 
 <br>
 
 <strong>Cédula:</strong>
-<?php echo $factura['cedula']; ?>
+<?php echo htmlspecialchars($factura['cedula']); ?>
 
 <br>
 
 <strong>Teléfono:</strong>
-<?php echo $factura['telefono']; ?>
+<?php echo htmlspecialchars($factura['telefono']); ?>
 
 <br>
 
 <strong>Fecha:</strong>
-<?php echo $factura['fecha']; ?>
+<?php echo htmlspecialchars($factura['fecha']); ?>
 
 </div>
 
@@ -152,42 +254,68 @@ button:hover{
 
 <tr>
 
-<td><?php echo $factura['producto']; ?></td>
+<td>
+<?php echo htmlspecialchars($factura['producto']); ?>
+</td>
 
-<td><?php echo $factura['cantidad']; ?></td>
+<td>
+<?php echo intval($factura['cantidad']); ?>
+</td>
 
-<td>$<?php echo $factura['precio_venta']; ?></td>
+<td>
+$<?php echo number_format($factura['precio_unitario'], 2); ?>
+</td>
 
-<td>$<?php echo $factura['subtotal']; ?></td>
+<td>
+$<?php echo number_format($factura['subtotal'], 2); ?>
+</td>
 
 </tr>
 
 </table>
 
-<div class="total">
 
-IVA:
-$<?php echo $factura['iva']; ?>
+<div class="resumen">
 
-<br><br>
+<p>
+    <strong>Subtotal:</strong>
 
-TOTAL:
-$<?php echo $factura['total']; ?>
+    <span>
+        $<?php echo number_format($factura['subtotal'], 2); ?>
+    </span>
+</p>
+
+<p>
+    <strong>IVA (15%):</strong>
+
+    <span>
+        $<?php echo number_format($factura['iva'], 2); ?>
+    </span>
+</p>
+
+<p class="total-final">
+    <strong>Total:</strong>
+
+    <span>
+        $<?php echo number_format($factura['total'], 2); ?>
+    </span>
+</p>
 
 </div>
 
-<br>
 
-<center>
+<div class="boton-imprimir">
 
 <button onclick="window.print()">
+
 Imprimir Factura
+
 </button>
 
-</center>
+</div>
 
 </div>
 
 </body>
+
 </html>
-```
