@@ -78,6 +78,8 @@ include("conexion.php");
 <th>Producto</th>
 <th>Cantidad</th>
 <th>Precio</th>
+<th>Subtotal</th>
+<th>IVA</th>
 <th>Total</th>
 <th>Fecha</th>
 
@@ -87,11 +89,19 @@ include("conexion.php");
 
 $ventas = mysqli_query($conexion,
 
-"SELECT ventas.id,
+"SELECT
+ventas.id,
 clientes.nombre AS cliente,
 productos.nombre AS producto,
 ventas.cantidad,
-productos.precio_venta,
+
+COALESCE(
+    detalle_ventas.precio_unitario,
+    ventas.subtotal / NULLIF(ventas.cantidad, 0)
+) AS precio_unitario,
+
+ventas.subtotal,
+ventas.iva,
 ventas.total,
 ventas.fecha
 
@@ -101,7 +111,13 @@ INNER JOIN clientes
 ON ventas.cliente_id = clientes.id
 
 INNER JOIN productos
-ON ventas.producto_id = productos.id"
+ON ventas.producto_id = productos.id
+
+LEFT JOIN detalle_ventas
+ON detalle_ventas.venta_id = ventas.id
+AND detalle_ventas.producto_id = ventas.producto_id
+
+ORDER BY ventas.id DESC"
 
 );
 
@@ -113,17 +129,29 @@ while($fila = mysqli_fetch_assoc($ventas)){
 
 <td><?php echo $fila['id']; ?></td>
 
-<td><?php echo $fila['cliente']; ?></td>
+<td><?php echo htmlspecialchars($fila['cliente']); ?></td>
 
-<td><?php echo $fila['producto']; ?></td>
+<td><?php echo htmlspecialchars($fila['producto']); ?></td>
 
-<td><?php echo $fila['cantidad']; ?></td>
+<td><?php echo intval($fila['cantidad']); ?></td>
 
-<td>$<?php echo $fila['precio_venta']; ?></td>
+<td>
+$<?php echo number_format($fila['precio_unitario'], 2); ?>
+</td>
 
-<td>$<?php echo $fila['total']; ?></td>
+<td>
+$<?php echo number_format($fila['subtotal'], 2); ?>
+</td>
 
-<td><?php echo $fila['fecha']; ?></td>
+<td>
+$<?php echo number_format($fila['iva'], 2); ?>
+</td>
+
+<td>
+$<?php echo number_format($fila['total'], 2); ?>
+</td>
+
+<td><?php echo htmlspecialchars($fila['fecha']); ?></td>
 
 </tr>
 

@@ -127,7 +127,7 @@ $consulta = mysqli_query(
                     </td>
 
                     <td>
-                        <?php echo $fila['cantidad']; ?>
+                        <?php echo intval($fila['cantidad']); ?>
                     </td>
 
                     <td>
@@ -139,7 +139,7 @@ $consulta = mysqli_query(
                     </td>
 
                     <td>
-                        <?php echo $fila['fecha']; ?>
+                        <?php echo htmlspecialchars($fila['fecha']); ?>
                     </td>
 
                 </tr>

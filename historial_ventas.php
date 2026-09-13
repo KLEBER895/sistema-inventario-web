@@ -74,6 +74,8 @@ font-size:16px;
 <th>Cliente</th>
 <th>Producto</th>
 <th>Cantidad</th>
+<th>Subtotal</th>
+<th>IVA</th>
 <th>Total</th>
 <th>Fecha</th>
 <th>Factura</th>
@@ -84,10 +86,13 @@ font-size:16px;
 
 $consulta = mysqli_query($conexion,
 
-"SELECT ventas.id,
+"SELECT
+ventas.id,
 clientes.nombre AS cliente,
 productos.nombre AS producto,
 ventas.cantidad,
+ventas.subtotal,
+ventas.iva,
 ventas.total,
 ventas.fecha
 
@@ -108,27 +113,42 @@ while($fila = mysqli_fetch_assoc($consulta)){
 <tr>
 
 <td>
-FAC-00<?php echo $fila['id']; ?>
+<?php
+echo "FAC-" . str_pad(
+    $fila['id'],
+    4,
+    "0",
+    STR_PAD_LEFT
+);
+?>
 </td>
 
 <td>
-<?php echo $fila['cliente']; ?>
+<?php echo htmlspecialchars($fila['cliente']); ?>
 </td>
 
 <td>
-<?php echo $fila['producto']; ?>
+<?php echo htmlspecialchars($fila['producto']); ?>
 </td>
 
 <td>
-<?php echo $fila['cantidad']; ?>
+<?php echo intval($fila['cantidad']); ?>
 </td>
 
 <td>
-$<?php echo $fila['total']; ?>
+$<?php echo number_format($fila['subtotal'], 2); ?>
 </td>
 
 <td>
-<?php echo $fila['fecha']; ?>
+$<?php echo number_format($fila['iva'], 2); ?>
+</td>
+
+<td>
+$<?php echo number_format($fila['total'], 2); ?>
+</td>
+
+<td>
+<?php echo htmlspecialchars($fila['fecha']); ?>
 </td>
 
 <td>
@@ -144,7 +164,6 @@ Ver PDF
 </td>
 
 </tr>
-
 <?php } ?>
 
 </table>

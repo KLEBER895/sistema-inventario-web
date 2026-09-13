@@ -1,4 +1,3 @@
-```php
 <?php
 
 require_once 'dompdf/autoload.inc.php';
@@ -9,73 +8,274 @@ use Dompdf\Dompdf;
 $dompdf = new Dompdf();
 
 /*
-ULTIMA VENTA
+OBTENER LA ÚLTIMA VENTA
+CON CLIENTE, PRODUCTO Y PRECIO HISTÓRICO
 */
-$venta = mysqli_query($conexion,
-"SELECT * FROM ventas ORDER BY id DESC LIMIT 1");
 
-$venta_data = mysqli_fetch_assoc($venta);
+$consulta = mysqli_query(
+    $conexion,
+    "SELECT
+        ventas.id,
+        ventas.cantidad,
+        ventas.subtotal,
+        ventas.iva,
+        ventas.total,
+        ventas.fecha,
 
-$cliente_id = $venta_data['cliente_id'];
-$producto_id = $venta_data['producto_id'];
+        clientes.nombre AS cliente,
+        clientes.cedula,
+        clientes.telefono,
 
-$cantidad = $venta_data['cantidad'];
-$subtotal = $venta_data['subtotal'];
-$iva = $venta_data['iva'];
-$total = $venta_data['total'];
-$fecha = $venta_data['fecha'];
+        productos.nombre AS producto,
+
+        COALESCE(
+            detalle_ventas.precio_unitario,
+            ventas.subtotal / NULLIF(ventas.cantidad, 0)
+        ) AS precio_unitario
+
+    FROM ventas
+
+    INNER JOIN clientes
+        ON ventas.cliente_id = clientes.id
+
+    INNER JOIN productos
+        ON ventas.producto_id = productos.id
+
+    LEFT JOIN detalle_ventas
+        ON detalle_ventas.venta_id = ventas.id
+        AND detalle_ventas.producto_id = ventas.producto_id
+
+    ORDER BY ventas.id DESC
+
+    LIMIT 1"
+);
+
+if (!$consulta) {
+
+    die("Error al consultar la venta.");
+
+}
+
+$factura = mysqli_fetch_assoc($consulta);
+
+if (!$factura) {
+
+    die("No existen ventas registradas.");
+
+}
+
 
 /*
-CLIENTE
+DATOS DE LA FACTURA
 */
-$cliente = mysqli_query($conexion,
-"SELECT * FROM clientes WHERE id='$cliente_id'");
 
-$cliente_data = mysqli_fetch_assoc($cliente);
+$numero_factura = "FAC-" . str_pad(
+    $factura['id'],
+    4,
+    "0",
+    STR_PAD_LEFT
+);
 
-$nombre_cliente = $cliente_data['nombre'];
-$cedula = $cliente_data['cedula'];
-$telefono = $cliente_data['telefono'];
+$cliente = htmlspecialchars($factura['cliente']);
+$cedula = htmlspecialchars($factura['cedula']);
+$telefono = htmlspecialchars($factura['telefono']);
+
+$producto = htmlspecialchars($factura['producto']);
+
+$cantidad = intval($factura['cantidad']);
+
+$precio = number_format(
+    $factura['precio_unitario'],
+    2
+);
+
+$subtotal = number_format(
+    $factura['subtotal'],
+    2
+);
+
+$iva = number_format(
+    $factura['iva'],
+    2
+);
+
+$total = number_format(
+    $factura['total'],
+    2
+);
+
+$fecha = htmlspecialchars($factura['fecha']);
+
 
 /*
-PRODUCTO
+HTML DE LA FACTURA
 */
-$producto = mysqli_query($conexion,
-"SELECT * FROM productos WHERE id='$producto_id'");
 
-$producto_data = mysqli_fetch_assoc($producto);
-
-$nombre_producto = $producto_data['nombre'];
-$precio = $producto_data['precio_venta'];
-
-/*
-HTML FACTURA
-*/
 $html = "
 
-<h1 style='text-align:center;color:#0d6efd;'>
-FACTURA DE VENTA
-</h1>
+<!DOCTYPE html>
 
-<hr>
+<html lang='es'>
 
-<h3>Fecha:</h3>
-<p>$fecha</p>
+<head>
 
-<h3>Cliente:</h3>
-<p>$nombre_cliente</p>
+<meta charset='UTF-8'>
 
-<h3>Cédula:</h3>
-<p>$cedula</p>
+<style>
 
-<h3>Teléfono:</h3>
-<p>$telefono</p>
+body {
 
-<hr>
+    font-family: Arial, sans-serif;
+    color: #222;
+    font-size: 14px;
 
-<table width='100%' border='1' cellspacing='0' cellpadding='8'>
+}
 
-<tr style='background:#0d6efd;color:white;'>
+.factura {
+
+    width: 90%;
+    margin: auto;
+
+}
+
+h1 {
+
+    text-align: center;
+    color: #1565c0;
+
+}
+
+.numero {
+
+    text-align: center;
+    margin-bottom: 25px;
+
+}
+
+.info {
+
+    line-height: 1.8;
+
+}
+
+table {
+
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+
+}
+
+th {
+
+    background: #1565c0;
+    color: white;
+    padding: 10px;
+    border: 1px solid #cccccc;
+
+}
+
+td {
+
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #cccccc;
+
+}
+
+.resumen {
+
+    width: 300px;
+    margin-left: auto;
+    margin-top: 25px;
+
+}
+
+.resumen table {
+
+    margin-top: 0;
+
+}
+
+.resumen td {
+
+    border: none;
+    padding: 6px;
+
+}
+
+.etiqueta {
+
+    text-align: left;
+    font-weight: bold;
+
+}
+
+.valor {
+
+    text-align: right;
+
+}
+
+.total-final td {
+
+    border-top: 2px solid #333333;
+    font-size: 18px;
+    font-weight: bold;
+
+}
+
+.gracias {
+
+    text-align: center;
+    margin-top: 40px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class='factura'>
+
+<h1>FACTURA DE VENTA</h1>
+
+<div class='numero'>
+
+<strong>
+$numero_factura
+</strong>
+
+</div>
+
+<div class='info'>
+
+<strong>Cliente:</strong>
+$cliente
+
+<br>
+
+<strong>Cédula:</strong>
+$cedula
+
+<br>
+
+<strong>Teléfono:</strong>
+$telefono
+
+<br>
+
+<strong>Fecha:</strong>
+$fecha
+
+</div>
+
+
+<table>
+
+<tr>
 
 <th>Producto</th>
 <th>Cantidad</th>
@@ -86,7 +286,7 @@ FACTURA DE VENTA
 
 <tr>
 
-<td>$nombre_producto</td>
+<td>$producto</td>
 <td>$cantidad</td>
 <td>$$precio</td>
 <td>$$subtotal</td>
@@ -95,29 +295,82 @@ FACTURA DE VENTA
 
 </table>
 
-<br>
 
-<h3>IVA:</h3>
-<p>$$iva</p>
+<div class='resumen'>
 
-<h2>Total:</h2>
-<p>$$total</p>
+<table>
 
-<hr>
+<tr>
 
-<p style='text-align:center;'>
+<td class='etiqueta'>
+Subtotal:
+</td>
+
+<td class='valor'>
+$$subtotal
+</td>
+
+</tr>
+
+<tr>
+
+<td class='etiqueta'>
+IVA (15%):
+</td>
+
+<td class='valor'>
+$$iva
+</td>
+
+</tr>
+
+<tr class='total-final'>
+
+<td class='etiqueta'>
+Total:
+</td>
+
+<td class='valor'>
+$$total
+</td>
+
+</tr>
+
+</table>
+
+</div>
+
+
+<p class='gracias'>
 Gracias por su compra
 </p>
 
+</div>
+
+</body>
+
+</html>
+
 ";
 
-$dompdf->loadHtml($html);
 
-$dompdf->setPaper('A4', 'portrait');
+$dompdf->loadHtml(
+    $html,
+    'UTF-8'
+);
+
+$dompdf->setPaper(
+    'A4',
+    'portrait'
+);
 
 $dompdf->render();
 
-$dompdf->stream("factura.pdf", array("Attachment" => false));
+$dompdf->stream(
+    "factura_" . $numero_factura . ".pdf",
+    array(
+        "Attachment" => false
+    )
+);
 
 ?>
-```
