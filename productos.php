@@ -13,24 +13,27 @@ if(isset($_SESSION['ultimo_acceso'])){
         session_destroy();
 
         header("Location: login.php");
-
         exit();
     }
 }
 
 $_SESSION['ultimo_acceso'] = time();
 
-if(!isset($_SESSION['usuario'])){
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
 
     header("Location: login.php");
-
     exit();
 }
 
-
 include("conexion.php");
 
-include("conexion.php");
+$es_admin = ($_SESSION['rol'] === 'Administrador');
+
+if(isset($_POST['guardar']) && !$es_admin){
+
+    header("Location: index.php");
+    exit();
+}
 
 if (isset($_GET['compra']) && $_GET['compra'] == 'ok') {
 
@@ -123,37 +126,83 @@ if(isset($_POST['guardar'])){
 
             <form method="POST">
 
-                <input type="text" name="nombre"
-                    placeholder="Nombre del producto" required>
+    <input type="text"
+           name="nombre"
+           placeholder="Nombre del producto"
+           required>
 
-                <input type="number" name="precio_compra"
-                    placeholder="Precio proveedor"
-                    step="0.01" required>
+    <input type="number"
+           name="precio_compra"
+           step="0.01"
+           min="0"
+           placeholder="Precio proveedor"
+           required>
 
-                <input type="number" name="precio_venta"
-                    placeholder="Precio venta al público"
-                    step="0.01" required>
+    <input type="number"
+           name="precio_venta"
+           step="0.01"
+           min="0"
+           placeholder="Precio venta al público"
+           required>
 
-                <input type="number" name="stock"
-                    placeholder="Stock" required>
+    <input type="number"
+           name="stock"
+           min="0"
+           placeholder="Stock"
+           required>
 
-                <input type="text" name="unidad"
-                    placeholder="Unidad" required>
+    <input type="text"
+           name="unidad"
+           placeholder="Unidad"
+           required>
 
-                <button type="submit" name="guardar">
-                    Guardar Producto
-                </button>
+    <button type="submit"
+            name="guardar">
+        Guardar Producto
+    </button>
 
-            </form>
+</form>
 
-        </div>
+            <?php
+if(isset($_GET['eliminado'])){
 
-    <?php } ?>
+    if($_GET['eliminado'] === 'ok'){
+        echo "<div style='
+            color: green;
+            font-weight: bold;
+            text-align: center;
+            padding: 12px;
+            margin: 15px;
+            background: #eaf8ea;
+            border-radius: 6px;
+        '>
+        ✓ Producto eliminado correctamente.
+        </div>";
 
-            <form method="GET">
+    }elseif($_GET['eliminado'] === 'error'){
+        echo "<div style='
+    color: red;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px;
+    margin: 15px 0;
+    background: #fdeaea;
+    border: 1px solid #f5b5b5;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+'>
+⚠ No se puede eliminar el producto porque tiene compras o ventas registradas.
+</div>";
+    }
+}
+?>
+<?php } ?>
+
+<form method="GET">
 
     <input type="text" name="buscar"
-    placeholder="Buscar producto">
+            placeholder="Buscar producto">
 
     <button type="submit">
         Buscar
