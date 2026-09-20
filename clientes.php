@@ -20,10 +20,21 @@ if(isset($_SESSION['ultimo_acceso'])){
 
 $_SESSION['ultimo_acceso'] = time();
 
-if(!isset($_SESSION['usuario'])){
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
 
     header("Location: login.php");
 
+    exit();
+}
+
+$rol_permitido = (
+    $_SESSION['rol'] === 'Administrador' ||
+    $_SESSION['rol'] === 'Empleado'
+);
+
+if(!$rol_permitido){
+
+    header("Location: index.php");
     exit();
 }
 
@@ -102,20 +113,37 @@ href="css/estilos.css">
 <?php } ?>
 
 <?php
+if(isset($_POST['guardar']) && !$rol_permitido){
+
+    header("Location: index.php");
+    exit();
+}
 
 if(isset($_POST['guardar'])){
 
+    $nombre = trim($_POST['nombre']);
+    $cedula = trim($_POST['cedula']);
+    $telefono = trim($_POST['telefono']);
+    $direccion = trim($_POST['dirección']);
 
-    $nombre = $_POST['nombre'];
-    $cedula = $_POST['cedula'];
-    $telefono = $_POST['telefono'];
-    $direccion = $_POST['dirección'];
+    $stmt = mysqli_prepare(
+        $conexion,
+        "INSERT INTO clientes
+        (nombre, cedula, telefono, dirección)
+        VALUES (?, ?, ?, ?)"
+    );
 
-    mysqli_query($conexion,
-    "INSERT INTO clientes
-    (nombre, cedula, telefono, dirección)
-    VALUES
-    ('$nombre','$cedula','$telefono','$direccion')");
+    mysqli_stmt_bind_param(
+        $stmt,
+        "ssss",
+        $nombre,
+        $cedula,
+        $telefono,
+        $direccion
+    );
+
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
 
     echo "<p style='color:green;
     text-align:center;
@@ -150,11 +178,9 @@ while($cliente = mysqli_fetch_assoc($clientes)){
 
     <td><?php echo $cliente['id']; ?></td>
 
-    <td><?php echo $cliente['nombre']; ?></td>
-
-    <td><?php echo $cliente['cedula']; ?></td>
-
-    <td><?php echo $cliente['telefono']; ?></td>
+    <td><?php echo htmlspecialchars($cliente['nombre']); ?></td>
+    <td><?php echo htmlspecialchars($cliente['cedula']); ?></td>
+    <td><?php echo htmlspecialchars($cliente['telefono']); ?></td>
 
 </tr>
 
