@@ -21,14 +21,31 @@ if(isset($_SESSION['ultimo_acceso'])){
 
 $_SESSION['ultimo_acceso'] = time();
 
-if(!isset($_SESSION['usuario'])){
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
 
     header("Location: login.php");
 
     exit();
 }
 
+$rol_permitido = (
+    $_SESSION['rol'] === 'Administrador' ||
+    $_SESSION['rol'] === 'Empleado'
+);
+
+if(!$rol_permitido){
+
+    header("Location: index.php");
+    exit();
+}
+
 include("conexion.php");
+
+if(isset($_POST['vender']) && !$rol_permitido){
+
+    header("Location: index.php");
+    exit();
+}
 
 if(isset($_POST['vender'])){
 
@@ -36,10 +53,26 @@ if(isset($_POST['vender'])){
     $producto_id = $_POST['producto_id'];
     $cantidad = $_POST['cantidad'];
 
-    $buscar = mysqli_query($conexion,
-    "SELECT * FROM productos WHERE id='$producto_id'");
+    $stmt_producto = mysqli_prepare(
+    $conexion,
+    "SELECT id, stock, precio_venta
+     FROM productos
+     WHERE id = ?"
+);
 
-    $producto = mysqli_fetch_assoc($buscar);
+mysqli_stmt_bind_param(
+    $stmt_producto,
+    "i",
+    $producto_id
+);
+
+mysqli_stmt_execute($stmt_producto);
+
+$resultado_producto = mysqli_stmt_get_result($stmt_producto);
+
+$producto = mysqli_fetch_assoc($resultado_producto);
+
+mysqli_stmt_close($stmt_producto);
 
     $stock_actual = $producto['stock'];
 
@@ -58,56 +91,82 @@ mysqli_begin_transaction($conexion);
 try {
 
     // 1. Descontar stock
-    $actualizar_stock = mysqli_query(
-        $conexion,
-        "UPDATE productos
-         SET stock='$nuevo_stock'
-         WHERE id='$producto_id'"
-    );
+    $stmt_stock = mysqli_prepare(
+    $conexion,
+    "UPDATE productos
+     SET stock = ?
+     WHERE id = ?"
+);
 
-    if (!$actualizar_stock) {
-        throw new Exception("No se pudo actualizar el stock.");
-    }
+mysqli_stmt_bind_param(
+    $stmt_stock,
+    "ii",
+    $nuevo_stock,
+    $producto_id
+);
+
+if(!mysqli_stmt_execute($stmt_stock)){
+    mysqli_stmt_close($stmt_stock);
+    throw new Exception("No se pudo actualizar el stock.");
+}
+
+mysqli_stmt_close($stmt_stock);
 
 
     // 2. Registrar la venta
-    $insertar_venta = mysqli_query(
-        $conexion,
-        "INSERT INTO ventas
-        (cliente_id, producto_id, cantidad,
-        subtotal, iva, total, fecha)
+    $stmt_venta = mysqli_prepare(
+    $conexion,
+    "INSERT INTO ventas
+    (cliente_id, producto_id, cantidad,
+    subtotal, iva, total, fecha)
+    VALUES (?, ?, ?, ?, ?, ?, NOW())"
+);
 
-        VALUES
+mysqli_stmt_bind_param(
+    $stmt_venta,
+    "iiiddd",
+    $cliente_id,
+    $producto_id,
+    $cantidad,
+    $subtotal,
+    $iva,
+    $total
+);
 
-        ('$cliente_id','$producto_id','$cantidad',
-        '$subtotal','$iva','$total',NOW())"
-    );
+if(!mysqli_stmt_execute($stmt_venta)){
+    mysqli_stmt_close($stmt_venta);
+    throw new Exception("No se pudo registrar la venta.");
+}
 
-    if (!$insertar_venta) {
-        throw new Exception("No se pudo registrar la venta.");
-    }
+mysqli_stmt_close($stmt_venta);
 
-
-    // Guardar el ID de la venta ANTES de insertar el detalle
-    $venta_id = mysqli_insert_id($conexion);
-
+$venta_id = mysqli_insert_id($conexion);
 
     // 3. Registrar el detalle de la venta
-    $insertar_detalle = mysqli_query(
-        $conexion,
-        "INSERT INTO detalle_ventas
-        (venta_id, producto_id, cantidad,
-        precio_unitario, subtotal)
+    $stmt_detalle = mysqli_prepare(
+    $conexion,
+    "INSERT INTO detalle_ventas
+    (venta_id, producto_id, cantidad,
+    precio_unitario, subtotal)
+    VALUES (?, ?, ?, ?, ?)"
+);
 
-        VALUES
+mysqli_stmt_bind_param(
+    $stmt_detalle,
+    "iiidd",
+    $venta_id,
+    $producto_id,
+    $cantidad,
+    $precio,
+    $subtotal
+);
 
-        ('$venta_id','$producto_id','$cantidad',
-        '$precio','$subtotal')"
-    );
+if(!mysqli_stmt_execute($stmt_detalle)){
+    mysqli_stmt_close($stmt_detalle);
+    throw new Exception("No se pudo registrar el detalle de la venta.");
+}
 
-    if (!$insertar_detalle) {
-        throw new Exception("No se pudo registrar el detalle de la venta.");
-    }
+mysqli_stmt_close($stmt_detalle);
 
 
     // 4. Confirmar toda la operación
