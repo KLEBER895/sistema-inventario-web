@@ -2,32 +2,86 @@
 
 session_start();
 
-if(!isset($_SESSION['usuario'])){
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['id_usuario'])){
+
     header("Location: login.php");
     exit();
 }
 
 include("conexion.php");
 
-$usuario_actual = $_SESSION['usuario'];
+$id_usuario = intval($_SESSION['id_usuario']);
 
-$consulta = mysqli_query($conexion,
-"SELECT * FROM usuarios
-WHERE usuario='$usuario_actual'");
+$stmt = mysqli_prepare(
+    $conexion,
+    "SELECT id, usuario
+     FROM usuarios
+     WHERE id = ?"
+);
 
-$datos = mysqli_fetch_assoc($consulta);
+mysqli_stmt_bind_param($stmt, "i", $id_usuario);
+mysqli_stmt_execute($stmt);
+
+$resultado = mysqli_stmt_get_result($stmt);
+$datos = mysqli_fetch_assoc($resultado);
+
+mysqli_stmt_close($stmt);
+
+if(!$datos){
+
+    session_destroy();
+
+    header("Location: login.php");
+    exit();
+}
 
 if(isset($_POST['guardar'])){
 
-    $nuevo_usuario = $_POST['usuario'];
+    $nuevo_usuario = trim($_POST['usuario']);
     $nueva_clave = $_POST['clave'];
 
-    mysqli_query($conexion,
+    if($nueva_clave !== ''){
 
-    "UPDATE usuarios
-    SET usuario='$nuevo_usuario',
-        clave='$nueva_clave'
-    WHERE id='".$datos['id']."'");
+        $clave_hash = password_hash(
+            $nueva_clave,
+            PASSWORD_DEFAULT
+        );
+
+        $stmt_update = mysqli_prepare(
+            $conexion,
+            "UPDATE usuarios
+             SET usuario = ?,
+                 clave = ?
+             WHERE id = ?"
+        );
+
+        mysqli_stmt_bind_param(
+            $stmt_update,
+            "ssi",
+            $nuevo_usuario,
+            $clave_hash,
+            $id_usuario
+        );
+
+    }else{
+
+        $stmt_update = mysqli_prepare(
+            $conexion,
+            "UPDATE usuarios
+             SET usuario = ?
+             WHERE id = ?"
+        );
+
+        mysqli_stmt_bind_param(
+            $stmt_update,
+            "si",
+            $nuevo_usuario,
+            $id_usuario
+        );
+    }
+
+    mysqli_stmt_execute($stmt_update);
+    mysqli_stmt_close($stmt_update);
 
     $_SESSION['usuario'] = $nuevo_usuario;
 
@@ -35,6 +89,8 @@ if(isset($_POST['guardar'])){
     alert('Datos actualizados correctamente');
     window.location='perfil.php';
     </script>";
+
+    exit();
 }
 
 ?>
@@ -45,6 +101,8 @@ if(isset($_POST['guardar'])){
 <head>
 
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Mi Perfil</title>
 
 <link rel="stylesheet" href="css/estilos.css">
@@ -69,7 +127,7 @@ if(isset($_POST['guardar'])){
 
 <input type="text"
 name="usuario"
-value="<?php echo $datos['usuario']; ?>"
+value="<?php echo htmlspecialchars($datos['usuario']); ?>"
 required>
 
 <label>Nueva Contraseña</label>
@@ -79,8 +137,7 @@ required>
     <input type="password"
     id="clave"
     name="clave"
-    value="<?php echo $datos['clave']; ?>"
-    required>
+    placeholder="Dejar vacío para conservar la contraseña actual">
 
     <span id="ojo"
     onclick="mostrarClave()"
@@ -106,6 +163,7 @@ required>
 </div>
 
 </div>
+
 <script>
 
 function mostrarClave(){
