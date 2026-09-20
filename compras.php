@@ -20,14 +20,31 @@ if (isset($_SESSION['ultimo_acceso'])) {
 
 $_SESSION['ultimo_acceso'] = time();
 
-if (!isset($_SESSION['usuario'])) {
+if (!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])) {
 
     header("Location: login.php");
 
     exit();
 }
 
+$rol_permitido = (
+    $_SESSION['rol'] === 'Administrador' ||
+    $_SESSION['rol'] === 'Empleado'
+);
+
+if (!$rol_permitido) {
+
+    header("Location: index.php");
+    exit();
+}
+
 include("conexion.php");
+
+if (isset($_POST['registrar_compra']) && !$rol_permitido) {
+
+    header("Location: index.php");
+    exit();
+}
 
 if (isset($_GET['compra']) && $_GET['compra'] == 'ok') {
 
@@ -77,6 +94,8 @@ if (isset($_POST['registrar_compra'])) {
 
             $producto = mysqli_fetch_assoc($resultado_producto);
 
+            mysqli_stmt_close($consulta_producto);
+
             $stock_actual = intval($producto['stock']);
 
             $nuevo_stock = $stock_actual + $cantidad;
@@ -102,6 +121,8 @@ if (isset($_POST['registrar_compra'])) {
                 );
             }
 
+            mysqli_stmt_close($insertar_compra);
+
             $actualizar_stock = mysqli_prepare(
                 $conexion,
                 "UPDATE productos
@@ -123,6 +144,8 @@ if (isset($_POST['registrar_compra'])) {
                     "No se pudo actualizar el stock."
                 );
             }
+
+            mysqli_stmt_close($actualizar_stock);
 
            mysqli_commit($conexion);
 
