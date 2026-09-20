@@ -1,5 +1,41 @@
 <?php
 
+session_start();
+
+$tiempo_inactivo = 1800;
+
+if(isset($_SESSION['ultimo_acceso'])){
+
+    $tiempo_transcurrido = time() - $_SESSION['ultimo_acceso'];
+
+    if($tiempo_transcurrido > $tiempo_inactivo){
+
+        session_destroy();
+
+        header("Location: login.php");
+        exit();
+    }
+}
+
+$_SESSION['ultimo_acceso'] = time();
+
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
+
+    header("Location: login.php");
+    exit();
+}
+
+$rol_permitido = (
+    $_SESSION['rol'] === 'Administrador' ||
+    $_SESSION['rol'] === 'Empleado'
+);
+
+if(!$rol_permitido){
+
+    header("Location: index.php");
+    exit();
+}
+
 include("conexion.php");
 
 ?>
