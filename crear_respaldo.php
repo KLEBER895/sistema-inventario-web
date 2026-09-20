@@ -1,5 +1,19 @@
 <?php
 
+session_start();
+
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
+
+    header("Location: login.php");
+    exit();
+}
+
+if($_SESSION['rol'] !== 'Administrador'){
+
+    header("Location: index.php");
+    exit();
+}
+
 $base_datos = "inventario_web";
 
 $fecha = date("Y-m-d_H-i-s");
