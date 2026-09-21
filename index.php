@@ -21,10 +21,23 @@ if(isset($_SESSION['ultimo_acceso'])){
 
 $_SESSION['ultimo_acceso'] = time();
 
-if(!isset($_SESSION['usuario'])){
+if(
+    !isset($_SESSION['usuario']) ||
+    !isset($_SESSION['rol'])
+){
 
     header("Location: login.php");
+    exit();
+}
 
+$rol_permitido = (
+    $_SESSION['rol'] === 'Administrador' ||
+    $_SESSION['rol'] === 'Empleado'
+);
+
+if(!$rol_permitido){
+
+    header("Location: login.php");
     exit();
 }
 
@@ -394,9 +407,13 @@ while($alerta = mysqli_fetch_assoc($alertas)){
 
 <tr>
 
-<td><?php echo $alerta['nombre']; ?></td>
+<td>
+<?php echo htmlspecialchars($alerta['nombre']); ?>
+</td>
 
-<td><?php echo $alerta['stock']; ?></td>
+<td>
+<?php echo intval($alerta['stock']); ?>
+</td>
 
 <td>
 
