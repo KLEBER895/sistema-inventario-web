@@ -2,7 +2,28 @@
 
 session_start();
 
-if(!isset($_SESSION['usuario']) || !isset($_SESSION['id_usuario'])){
+$tiempo_inactivo = 1800;
+
+if(isset($_SESSION['ultimo_acceso'])){
+
+    $tiempo_transcurrido = time() - $_SESSION['ultimo_acceso'];
+
+    if($tiempo_transcurrido > $tiempo_inactivo){
+
+        session_destroy();
+
+        header("Location: login.php");
+        exit();
+    }
+}
+
+$_SESSION['ultimo_acceso'] = time();
+
+if(
+    !isset($_SESSION['usuario']) ||
+    !isset($_SESSION['id_usuario']) ||
+    !isset($_SESSION['rol'])
+){
 
     header("Location: login.php");
     exit();
