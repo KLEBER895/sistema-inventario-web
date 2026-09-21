@@ -1,5 +1,41 @@
 <?php
 
+session_start();
+
+$tiempo_inactivo = 1800;
+
+if(isset($_SESSION['ultimo_acceso'])){
+
+    $tiempo_transcurrido = time() - $_SESSION['ultimo_acceso'];
+
+    if($tiempo_transcurrido > $tiempo_inactivo){
+
+        session_destroy();
+
+        header("Location: login.php");
+        exit();
+    }
+}
+
+$_SESSION['ultimo_acceso'] = time();
+
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
+
+    header("Location: login.php");
+    exit();
+}
+
+$rol_permitido = (
+    $_SESSION['rol'] === 'Administrador' ||
+    $_SESSION['rol'] === 'Empleado'
+);
+
+if(!$rol_permitido){
+
+    header("Location: index.php");
+    exit();
+}
+
 include("conexion.php");
 
 // Obtener el ID de la venta de forma segura
@@ -9,7 +45,7 @@ if ($id <= 0) {
     die("Factura no válida.");
 }
 
-$consulta = mysqli_query(
+$stmt = mysqli_prepare(
     $conexion,
     "SELECT
         ventas.id,
@@ -44,14 +80,25 @@ $consulta = mysqli_query(
         ON detalle_ventas.venta_id = ventas.id
         AND detalle_ventas.producto_id = ventas.producto_id
 
-    WHERE ventas.id = $id"
+    WHERE ventas.id = ?"
 );
 
+mysqli_stmt_bind_param(
+    $stmt,
+    "i",
+    $id
+);
+
+mysqli_stmt_execute($stmt);
+
+$consulta = mysqli_stmt_get_result($stmt);
 if (!$consulta) {
     die("Error al consultar la factura.");
 }
 
 $factura = mysqli_fetch_assoc($consulta);
+
+mysqli_stmt_close($stmt);
 
 if (!$factura) {
     die("Factura no encontrada.");

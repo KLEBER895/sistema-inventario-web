@@ -2,13 +2,6 @@
 
 session_start();
 
-
-if($_SESSION['rol'] != 'Administrador'){
-
-    header("Location:index.php");
-    exit();
-}
-
 $tiempo_inactivo = 1800;
 
 if(isset($_SESSION['ultimo_acceso'])){
@@ -20,51 +13,96 @@ if(isset($_SESSION['ultimo_acceso'])){
         session_destroy();
 
         header("Location: login.php");
-
         exit();
     }
 }
 
 $_SESSION['ultimo_acceso'] = time();
 
-if(!isset($_SESSION['usuario'])){
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
 
     header("Location: login.php");
+    exit();
+}
 
+if($_SESSION['rol'] !== 'Administrador'){
+
+    header("Location: index.php");
     exit();
 }
 
 include("conexion.php");
 
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
+if($id <= 0){
 
-$id = $_GET['id'];
+    header("Location: productos.php");
+    exit();
+}
 
-$consulta = "SELECT * FROM productos WHERE id='$id'";
-$resultado = mysqli_query($conexion, $consulta);
+$stmt = mysqli_prepare(
+    $conexion,
+    "SELECT id, nombre, precio_compra, precio_venta,
+            ganancia, stock, unidad
+     FROM productos
+     WHERE id = ?"
+);
 
+mysqli_stmt_bind_param($stmt, "i", $id);
+mysqli_stmt_execute($stmt);
+
+$resultado = mysqli_stmt_get_result($stmt);
 $fila = mysqli_fetch_assoc($resultado);
+
+mysqli_stmt_close($stmt);
+
+if(!$fila){
+
+    header("Location: productos.php");
+    exit();
+}
 
 if(isset($_POST['actualizar'])){
 
-    $nombre = $_POST['nombre'];
-    $precio = $_POST['precio'];
-    $stock = $_POST['stock'];
-    $unidad = $_POST['unidad'];
+    $nombre = trim($_POST['nombre']);
+    $precio_compra = floatval($_POST['precio_compra']);
+    $precio_venta = floatval($_POST['precio_venta']);
+    $stock = intval($_POST['stock']);
+    $unidad = trim($_POST['unidad']);
 
-    $actualizar = "UPDATE productos 
-    SET nombre='$nombre',
-    precio='$precio',
-    stock='$stock',
-    unidad='$unidad'
-    WHERE id='$id'";
+    $ganancia = $precio_venta - $precio_compra;
 
-    mysqli_query($conexion, $actualizar);
+    $stmt_update = mysqli_prepare(
+        $conexion,
+        "UPDATE productos
+         SET nombre = ?,
+             precio_compra = ?,
+             precio_venta = ?,
+             ganancia = ?,
+             stock = ?,
+             unidad = ?,
+             fecha_actualizacion = NOW()
+         WHERE id = ?"
+    );
+
+    mysqli_stmt_bind_param(
+        $stmt_update,
+        "sdddisi",
+        $nombre,
+        $precio_compra,
+        $precio_venta,
+        $ganancia,
+        $stock,
+        $unidad,
+        $id
+    );
+
+    mysqli_stmt_execute($stmt_update);
+    mysqli_stmt_close($stmt_update);
 
     header("Location: productos.php");
-
     exit();
-
 }
 
 ?>
@@ -75,6 +113,8 @@ if(isset($_POST['actualizar'])){
 <head>
 
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Editar Producto</title>
 
 <link rel="stylesheet" href="css/estilos.css">
@@ -84,46 +124,68 @@ if(isset($_POST['actualizar'])){
 <body>
 
 <header>
-    <h1>Módulo de Productos</h1>
+    <h1>Editar Producto</h1>
 </header>
 
-<nav class="menu">
-
-    <a href="index.php">Inicio</a>
-    <a href="productos.php">Productos</a>
-
-</nav>
+<?php include("menu.php"); ?>
 
 <div class="contenedor">
 
-    <div class="card">
+<div class="card">
 
-        <h2>Editar Producto</h2>
+<h2>Datos del Producto</h2>
 
-        <form method="POST">
+<form method="POST">
 
-            <input type="text" name="nombre"
-            value="<?php echo $fila['nombre']; ?>">
+<label>Nombre</label>
 
-            <input type="number" step="0.01" name="precio"
-            value="<?php echo $fila['precio']; ?>">
+<input type="text"
+name="nombre"
+value="<?php echo htmlspecialchars($fila['nombre']); ?>"
+required>
 
-            <input type="number" name="stock"
-            value="<?php echo $fila['stock']; ?>">
+<label>Precio de Compra</label>
 
-            <input type="text" name="unidad"
-            value="<?php echo $fila['unidad']; ?>">
+<input type="number"
+name="precio_compra"
+step="0.01"
+min="0"
+value="<?php echo htmlspecialchars($fila['precio_compra']); ?>"
+required>
 
-            <button type="submit" name="actualizar">
-                Actualizar Producto
-            </button>
+<label>Precio de Venta</label>
 
-        </form>
+<input type="number"
+name="precio_venta"
+step="0.01"
+min="0"
+value="<?php echo htmlspecialchars($fila['precio_venta']); ?>"
+required>
 
-    </div>
+<label>Stock</label>
+
+<input type="number"
+name="stock"
+min="0"
+value="<?php echo intval($fila['stock']); ?>"
+required>
+
+<label>Unidad</label>
+
+<input type="text"
+name="unidad"
+value="<?php echo htmlspecialchars($fila['unidad']); ?>"
+required>
+
+<button type="submit" name="actualizar">
+Actualizar Producto
+</button>
+
+</form>
+
+</div>
 
 </div>
 
 </body>
-
 </html>

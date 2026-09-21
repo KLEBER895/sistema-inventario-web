@@ -20,10 +20,21 @@ if (isset($_SESSION['ultimo_acceso'])) {
 
 $_SESSION['ultimo_acceso'] = time();
 
-if (!isset($_SESSION['usuario'])) {
+if (!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])) {
 
     header("Location: login.php");
 
+    exit();
+}
+
+$rol_permitido = (
+    $_SESSION['rol'] === 'Administrador' ||
+    $_SESSION['rol'] === 'Empleado'
+);
+
+if (!$rol_permitido) {
+
+    header("Location: index.php");
     exit();
 }
 

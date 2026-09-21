@@ -2,39 +2,106 @@
 
 session_start();
 
-if($_SESSION['rol'] != 'Administrador'){
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
 
-    header("Location:index.php");
+    header("Location: login.php");
+    exit();
+}
+
+if($_SESSION['rol'] !== 'Administrador'){
+
+    header("Location: index.php");
     exit();
 }
 
 include("conexion.php");
 
-$id = $_GET['id'];
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-$consulta = mysqli_query($conexion,
-"SELECT * FROM usuarios
-WHERE id='$id'");
+if($id <= 0){
 
-$usuario = mysqli_fetch_assoc($consulta);
+    header("Location: usuarios.php");
+    exit();
+}
+
+$stmt = mysqli_prepare(
+    $conexion,
+    "SELECT id, nombre, usuario, clave, rol
+     FROM usuarios
+     WHERE id = ?"
+);
+
+mysqli_stmt_bind_param($stmt, "i", $id);
+mysqli_stmt_execute($stmt);
+
+$resultado = mysqli_stmt_get_result($stmt);
+$usuario = mysqli_fetch_assoc($resultado);
+
+mysqli_stmt_close($stmt);
+
+if(!$usuario){
+
+    header("Location: usuarios.php");
+    exit();
+}
 
 if(isset($_POST['actualizar'])){
 
-    $nombre = $_POST['nombre'];
-    $usuario_nuevo = $_POST['usuario'];
-    $clave = $_POST['clave'];
+    $nombre = trim($_POST['nombre']);
+    $usuario_nuevo = trim($_POST['usuario']);
+    $clave_nueva = $_POST['clave'];
     $rol = $_POST['rol'];
 
-    mysqli_query($conexion,
+    if($clave_nueva !== ''){
 
-    "UPDATE usuarios
+        $clave_hash = password_hash(
+            $clave_nueva,
+            PASSWORD_DEFAULT
+        );
 
-    SET nombre='$nombre',
-        usuario='$usuario_nuevo',
-        clave='$clave',
-        rol='$rol'
+        $stmt_update = mysqli_prepare(
+            $conexion,
+            "UPDATE usuarios
+             SET nombre = ?,
+                 usuario = ?,
+                 clave = ?,
+                 rol = ?
+             WHERE id = ?"
+        );
 
-    WHERE id='$id'");
+        mysqli_stmt_bind_param(
+            $stmt_update,
+            "ssssi",
+            $nombre,
+            $usuario_nuevo,
+            $clave_hash,
+            $rol,
+            $id
+        );
+
+    }else{
+
+        $stmt_update = mysqli_prepare(
+            $conexion,
+            "UPDATE usuarios
+             SET nombre = ?,
+                 usuario = ?,
+                 rol = ?
+             WHERE id = ?"
+        );
+
+        mysqli_stmt_bind_param(
+            $stmt_update,
+            "sssi",
+            $nombre,
+            $usuario_nuevo,
+            $rol,
+            $id
+        );
+    }
+
+    mysqli_stmt_execute($stmt_update);
+    mysqli_stmt_close($stmt_update);
 
     header("Location: usuarios.php");
     exit();
@@ -48,11 +115,11 @@ if(isset($_POST['actualizar'])){
 <head>
 
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Editar Usuario</title>
 
-<link rel="stylesheet"
-href="css/estilos.css">
+<link rel="stylesheet" href="css/estilos.css">
 
 </head>
 
@@ -72,28 +139,27 @@ href="css/estilos.css">
 
 <input type="text"
 name="nombre"
-value="<?php echo $usuario['nombre']; ?>"
+value="<?php echo htmlspecialchars($usuario['nombre']); ?>"
 required>
 
 <input type="text"
 name="usuario"
-value="<?php echo $usuario['usuario']; ?>"
+value="<?php echo htmlspecialchars($usuario['usuario']); ?>"
 required>
 
 <input type="password"
 name="clave"
-value="<?php echo $usuario['clave']; ?>"
-required>
+placeholder="Nueva contraseña (opcional)">
 
-<select name="rol">
+<select name="rol" required>
 
 <option value="Administrador"
-<?php if($usuario['rol']=="Administrador") echo "selected"; ?>>
+<?php if($usuario['rol'] === "Administrador") echo "selected"; ?>>
 Administrador
 </option>
 
 <option value="Empleado"
-<?php if($usuario['rol']=="Empleado") echo "selected"; ?>>
+<?php if($usuario['rol'] === "Empleado") echo "selected"; ?>>
 Empleado
 </option>
 
@@ -101,9 +167,7 @@ Empleado
 
 <button type="submit"
 name="actualizar">
-
 Actualizar Usuario
-
 </button>
 
 </form>
@@ -113,5 +177,4 @@ Actualizar Usuario
 </div>
 
 </body>
-
 </html>

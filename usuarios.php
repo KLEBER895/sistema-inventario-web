@@ -19,22 +19,55 @@ if(isset($_SESSION['ultimo_acceso'])){
 
 $_SESSION['ultimo_acceso'] = time();
 
-if(!isset($_SESSION['usuario'])){
+if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
 
     header("Location: login.php");
     exit();
 }
 
-if($_SESSION['rol'] != 'Administrador'){
+if($_SESSION['rol'] !== 'Administrador'){
 
-    header("Location:index.php");
+    header("Location: index.php");
     exit();
 }
 
 include("conexion.php");
 
-?>
+if(isset($_POST['guardar'])){
 
+    $nombre = trim($_POST['nombre']);
+    $usuario = trim($_POST['usuario']);
+    $clave = $_POST['clave'];
+    $rol = $_POST['rol'];
+
+    $clave_hash = password_hash(
+        $clave,
+        PASSWORD_DEFAULT
+    );
+
+    $stmt = mysqli_prepare(
+        $conexion,
+        "INSERT INTO usuarios
+        (nombre, usuario, clave, rol)
+        VALUES (?, ?, ?, ?)"
+    );
+
+    mysqli_stmt_bind_param(
+        $stmt,
+        "ssss",
+        $nombre,
+        $usuario,
+        $clave_hash,
+        $rol
+    );
+
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    $mensaje = "Usuario registrado correctamente";
+}
+
+?>
 
 <!DOCTYPE html>
 <html lang="es">
@@ -110,28 +143,11 @@ Guardar Usuario
 
 <?php
 
-if(isset($_POST['guardar'])){
+if(isset($mensaje)){
 
-    $nombre = $_POST['nombre'];
-    $usuario = $_POST['usuario'];
-    $clave = $_POST['clave'];
-    $clave = password_hash($clave, PASSWORD_DEFAULT);
-    $rol = $_POST['rol'];
-
-    mysqli_query($conexion,
-
-        "INSERT INTO usuarios
-        (nombre, usuario, clave, rol)
-
-        VALUES
-
-        ('$nombre','$usuario','$clave','$rol')"
-
-    );
-
-    echo "<div class='mensaje' style='color:green;'>
-            Usuario registrado correctamente
-          </div>";
+    echo "<div class='mensaje' style='color:green;'>"
+        . htmlspecialchars($mensaje) .
+        "</div>";
 }
 
 ?>
@@ -141,7 +157,6 @@ if(isset($_POST['guardar'])){
 <div class="tabla-responsive">
 
 <table>
-</div>
 
 <tr>
 <th>ID</th>
@@ -153,8 +168,11 @@ if(isset($_POST['guardar'])){
 
 <?php
 
-$usuarios = mysqli_query($conexion,
-    "SELECT * FROM usuarios");
+$usuarios = mysqli_query(
+    $conexion,
+    "SELECT id, nombre, usuario, rol
+     FROM usuarios"
+);
 
 while($fila = mysqli_fetch_assoc($usuarios)){
 
@@ -162,30 +180,30 @@ while($fila = mysqli_fetch_assoc($usuarios)){
 
 <tr>
 
-<td><?php echo $fila['id']; ?></td>
+<td><?php echo intval($fila['id']); ?></td>
 
-<td><?php echo $fila['nombre']; ?></td>
+<td><?php echo htmlspecialchars($fila['nombre']); ?></td>
 
-<td><?php echo $fila['usuario']; ?></td>
+<td><?php echo htmlspecialchars($fila['usuario']); ?></td>
 
-<td><?php echo $fila['rol']; ?></td>
+<td><?php echo htmlspecialchars($fila['rol']); ?></td>
 
 <td>
 
-<a href="editar_usuario.php?id=<?php echo $fila['id']; ?>">
+<a href="editar_usuario.php?id=<?php echo intval($fila['id']); ?>">
     Editar
 </a>
 
 |
 
-<a href="resetear_clave.php?id=<?php echo $fila['id']; ?>"
+<a href="resetear_clave.php?id=<?php echo intval($fila['id']); ?>"
 onclick="return confirm('¿Restablecer contraseña?');">
     Resetear
 </a>
 
 |
 
-<a href="eliminar_usuario.php?id=<?php echo $fila['id']; ?>"
+<a href="eliminar_usuario.php?id=<?php echo intval($fila['id']); ?>"
 onclick="return confirm('¿Eliminar usuario?');">
     Eliminar
 </a>
@@ -197,6 +215,8 @@ onclick="return confirm('¿Eliminar usuario?');">
 <?php } ?>
 
 </table>
+
+</div>
 
 </div>
 

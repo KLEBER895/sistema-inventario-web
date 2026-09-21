@@ -6,50 +6,78 @@ include("conexion.php");
 
 if(isset($_POST['ingresar'])){
 
-    $usuario = $_POST['usuario'];
-$clave = $_POST['clave'];
+    $usuario = trim($_POST['usuario']);
+    $clave = $_POST['clave'];
 
-$consulta = mysqli_query($conexion,
+    $stmt = mysqli_prepare(
+        $conexion,
+        "SELECT id, usuario, clave, rol
+         FROM usuarios
+         WHERE usuario = ?"
+    );
 
-    "SELECT * FROM usuarios
-    WHERE usuario='$usuario'"
+    mysqli_stmt_bind_param($stmt, "s", $usuario);
+    mysqli_stmt_execute($stmt);
 
-);
+    $resultado = mysqli_stmt_get_result($stmt);
 
-if(mysqli_num_rows($consulta) > 0){
+    if($datos = mysqli_fetch_assoc($resultado)){
 
-    $fila = mysqli_fetch_assoc($consulta);
+        $clave_valida = false;
 
-    if(
-    password_verify($clave, $fila['clave'])
-    || $clave == $fila['clave']
-){
+        // Usuario con contraseña ya protegida mediante hash
+        if(password_verify($clave, $datos['clave'])){
 
-        $_SESSION['usuario'] = $fila['usuario'];
-        $_SESSION['rol'] = $fila['rol'];
+            $clave_valida = true;
 
-        header("Location:index.php");
-        exit();
+        // Migración temporal de usuarios antiguos con contraseña en texto plano
+        }elseif(hash_equals($datos['clave'], $clave)){
+
+            $clave_valida = true;
+
+            $nuevo_hash = password_hash($clave, PASSWORD_DEFAULT);
+
+            $stmt_update = mysqli_prepare(
+                $conexion,
+                "UPDATE usuarios
+                 SET clave = ?
+                 WHERE id = ?"
+            );
+
+            mysqli_stmt_bind_param(
+                $stmt_update,
+                "si",
+                $nuevo_hash,
+                $datos['id']
+            );
+
+            mysqli_stmt_execute($stmt_update);
+            mysqli_stmt_close($stmt_update);
+        }
+
+        if($clave_valida){
+
+            session_regenerate_id(true);
+
+            $_SESSION['id_usuario'] = $datos['id'];
+            $_SESSION['usuario'] = $datos['usuario'];
+            $_SESSION['rol'] = $datos['rol'];
+            $_SESSION['ultimo_acceso'] = time();
+
+            header("Location:index.php");
+            exit();
+
+        }else{
+
+            $error = "Usuario o contraseña incorrectos";
+        }
 
     }else{
 
-        echo "<script>
-        alert('Contraseña incorrecta');
-        window.location='login.php';
-        </script>";
-        exit();
+        $error = "Usuario o contraseña incorrectos";
     }
 
-}else{
-
-    echo "<script>
-    alert('Usuario no encontrado');
-    window.location='login.php';
-    </script>";
-    exit();
-}
-
-        
+    mysqli_stmt_close($stmt);
 }
 
 ?>
