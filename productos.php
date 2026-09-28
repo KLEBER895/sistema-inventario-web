@@ -328,6 +328,129 @@ Solo lectura
 <hr>
 <br>
 
+
+
+<!--
+CAMBIO: Se agregó filtro por rango de fechas para el reporte
+de ganancias por producto.
+MOTIVO: Permitir conocer las ventas y ganancias generadas
+entre una fecha inicial y una fecha final.
+FECHA: 28/09/2026
+-->
+
+<?php
+
+$fecha_desde =
+    isset($_GET['fecha_desde'])
+    ? trim($_GET['fecha_desde'])
+    : '';
+
+$fecha_hasta =
+    isset($_GET['fecha_hasta'])
+    ? trim($_GET['fecha_hasta'])
+    : '';
+
+?>
+
+<div class="card">
+
+<h3>Filtrar ganancias por fecha</h3>
+
+<form method="GET">
+
+<label>Desde</label>
+
+<input
+type="date"
+name="fecha_desde"
+value="<?php
+echo htmlspecialchars($fecha_desde);
+?>">
+
+
+<label>Hasta</label>
+
+<input
+type="date"
+name="fecha_hasta"
+value="<?php
+echo htmlspecialchars($fecha_hasta);
+?>">
+
+
+<button type="submit">
+Filtrar reporte
+</button>
+
+
+<a
+href="productos.php"
+style="
+display:inline-block;
+background:#5B6B7A;
+color:white;
+padding:10px 20px;
+border-radius:5px;
+text-decoration:none;
+font-weight:bold;
+margin-top:10px;
+">
+
+Limpiar filtro
+
+</a>
+
+</form>
+
+</div>
+
+<br>
+
+<?php
+
+if(
+    $fecha_desde !== '' &&
+    $fecha_hasta !== ''
+){
+
+?>
+
+<!--
+CAMBIO: Se agregó mensaje visual del rango aplicado
+al reporte de ganancias por producto.
+MOTIVO: Permitir identificar rápidamente que los resultados
+corresponden al período seleccionado.
+FECHA: 28/09/2026
+-->
+
+<div
+style="
+    background:#d4edda;
+    color:#155724;
+    border-left:4px solid #198754;
+    padding:12px;
+    margin:15px 0 20px 0;
+    border-radius:5px;
+    font-weight:bold;
+">
+
+Mostrando ganancias desde
+<?php
+echo htmlspecialchars($fecha_desde);
+?>
+hasta
+<?php
+echo htmlspecialchars($fecha_hasta);
+?>
+
+</div>
+
+<?php
+
+}
+
+?>
+
 <h2>Ganancias por Producto</h2>
 
 <table>
@@ -340,58 +463,239 @@ Solo lectura
 
 <?php
 
-$ganancias = mysqli_query($conexion,
+/*
+CAMBIO: El reporte de ganancias ahora puede filtrarse
+por fecha de venta.
+MOTIVO: Mostrar únicamente las ventas y ganancias
+correspondientes al periodo seleccionado.
+FECHA: 28/09/2026
+*/
 
-"SELECT
-p.nombre,
-SUM(v.cantidad) AS cantidad_vendida,
-SUM(v.cantidad * p.ganancia) AS ganancia_total
+$sql_ganancias = "
+SELECT
+    p.nombre,
+    SUM(v.cantidad) AS cantidad_vendida,
+    SUM(v.cantidad * p.ganancia) AS ganancia_total
 
 FROM ventas v
 
 INNER JOIN productos p
 ON v.producto_id = p.id
+";
 
-GROUP BY p.id
 
-ORDER BY ganancia_total DESC");
+if(
+    $fecha_desde !== '' &&
+    $fecha_hasta !== ''
+){
 
-while($g = mysqli_fetch_assoc($ganancias)){
+    $fecha_hasta_siguiente =
+        date(
+            'Y-m-d',
+            strtotime(
+                $fecha_hasta . ' +1 day'
+            )
+        );
+
+    $sql_ganancias .= "
+    WHERE v.fecha >= ?
+    AND v.fecha < ?
+
+    GROUP BY p.id
+
+    ORDER BY ganancia_total DESC
+    ";
+
+    $stmt_ganancias =
+        mysqli_prepare(
+            $conexion,
+            $sql_ganancias
+        );
+
+    mysqli_stmt_bind_param(
+        $stmt_ganancias,
+        "ss",
+        $fecha_desde,
+        $fecha_hasta_siguiente
+    );
+
+    mysqli_stmt_execute(
+        $stmt_ganancias
+    );
+
+    $ganancias =
+        mysqli_stmt_get_result(
+            $stmt_ganancias
+        );
+
+}else{
+
+    $sql_ganancias .= "
+    GROUP BY p.id
+
+    ORDER BY ganancia_total DESC
+    ";
+
+    $ganancias =
+        mysqli_query(
+            $conexion,
+            $sql_ganancias
+        );
+}
+
+/*
+CAMBIO: Se agregó mensaje cuando el rango filtrado
+no contiene ventas ni ganancias.
+MOTIVO: Informar claramente al usuario que la consulta
+fue correcta, pero no existen datos para ese período.
+FECHA: 28/09/2026
+*/
+
+if(
+    $ganancias &&
+    mysqli_num_rows($ganancias) > 0
+){
+
+    while(
+        $g = mysqli_fetch_assoc($ganancias)
+    ){
 
 ?>
 
 <tr>
 
-<td><?php echo $g['nombre']; ?></td>
-
-<td><?php echo $g['cantidad_vendida']; ?></td>
+<td>
+<?php
+echo htmlspecialchars(
+    $g['nombre']
+);
+?>
+</td>
 
 <td>
-$<?php echo number_format($g['ganancia_total'],2); ?>
+<?php
+echo intval(
+    $g['cantidad_vendida']
+);
+?>
+</td>
+
+<td>
+$
+<?php
+echo number_format(
+    $g['ganancia_total'],
+    2
+);
+?>
 </td>
 
 </tr>
 
-<?php } ?>
+<?php
+
+    }
+
+}else{
+
+?>
+
+<tr>
+
+<td
+colspan="3"
+style="
+    text-align:center;
+    background:#FFF3CD;
+    color:#664D03;
+    border-left:4px solid #D39E00;
+    padding:14px;
+    font-weight:bold;
+">
+
+No se registraron ventas ni ganancias
+en el rango de fechas seleccionado.
+
+</td>
+
+</tr>
+
+<?php
+
+}
+
+?>
 
 </table>
 
 <?php
 
-$total_ganancias = mysqli_query($conexion,
+/*
+CAMBIO: El resumen global de ganancias utiliza
+el mismo rango de fechas del reporte.
+MOTIVO: Evitar que la tabla filtrada y el total
+muestren periodos diferentes.
+FECHA: 28/09/2026
+*/
 
-"SELECT
+$sql_total = "
+SELECT
 SUM(v.cantidad * p.ganancia)
 AS total
 
 FROM ventas v
 
 INNER JOIN productos p
-ON v.producto_id = p.id"
+ON v.producto_id = p.id
+";
 
-);
 
-$global = mysqli_fetch_assoc($total_ganancias);
+if(
+    $fecha_desde !== '' &&
+    $fecha_hasta !== ''
+){
+
+    $sql_total .= "
+    WHERE v.fecha >= ?
+    AND v.fecha < ?
+    ";
+
+    $stmt_total =
+        mysqli_prepare(
+            $conexion,
+            $sql_total
+        );
+
+    mysqli_stmt_bind_param(
+        $stmt_total,
+        "ss",
+        $fecha_desde,
+        $fecha_hasta_siguiente
+    );
+
+    mysqli_stmt_execute(
+        $stmt_total
+    );
+
+    $total_ganancias =
+        mysqli_stmt_get_result(
+            $stmt_total
+        );
+
+}else{
+
+    $total_ganancias =
+        mysqli_query(
+            $conexion,
+            $sql_total
+        );
+}
+
+
+$global =
+    mysqli_fetch_assoc(
+        $total_ganancias
+    );
 
 ?>
 
@@ -401,7 +705,12 @@ $global = mysqli_fetch_assoc($total_ganancias);
 <div class="card">
 
 <h2>
-$<?php echo number_format($global['total'],2); ?>
+$<?php
+echo number_format(
+    $global['total'] ?? 0,
+    2
+);
+?>
 </h2>
 
 <p>Ganancia Global de Productos</p>
