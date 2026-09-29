@@ -16,6 +16,12 @@ database/*.sql
 .env.*
 !.env.example
 
+# Dependencias instaladas por Composer
+vendor/
+
+# Configuración privada del correo SMTP
+config_mail.php
+
 # Archivos temporales
 *.log
 *.tmp
@@ -32,3 +38,6 @@ Desktop.ini
 prueba_onedrive.txt
 # Cache generado por DOMPDF
 dompdf/vendor/dompdf/dompdf/lib/fonts/*.json
+
+# Archivo temporal de prueba SMTP
+enviar_correo_prueba.php

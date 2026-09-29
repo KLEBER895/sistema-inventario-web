@@ -1,4 +1,3 @@
-
 <?php
 
 session_start();
@@ -21,7 +20,10 @@ if(isset($_SESSION['ultimo_acceso'])){
 
 $_SESSION['ultimo_acceso'] = time();
 
-if(!isset($_SESSION['usuario']) || !isset($_SESSION['rol'])){
+if(
+    !isset($_SESSION['usuario']) ||
+    !isset($_SESSION['rol'])
+){
 
     header("Location: login.php");
 
@@ -41,185 +43,366 @@ if(!$rol_permitido){
 
 include("conexion.php");
 
-if(isset($_POST['vender']) && !$rol_permitido){
-
-    header("Location: index.php");
-    exit();
-}
 
 if(isset($_POST['vender'])){
 
-    $cliente_id = $_POST['cliente_id'];
-    $producto_id = $_POST['producto_id'];
-    $cantidad = $_POST['cantidad'];
+    $cliente_id =
+        isset($_POST['cliente_id'])
+        ? intval($_POST['cliente_id'])
+        : 0;
 
-    $stmt_producto = mysqli_prepare(
-    $conexion,
-    "SELECT id, stock, precio_venta
-     FROM productos
-     WHERE id = ?"
-);
+    $producto_id =
+        isset($_POST['producto_id'])
+        ? intval($_POST['producto_id'])
+        : 0;
 
-mysqli_stmt_bind_param(
-    $stmt_producto,
-    "i",
-    $producto_id
-);
-
-mysqli_stmt_execute($stmt_producto);
-
-$resultado_producto = mysqli_stmt_get_result($stmt_producto);
-
-$producto = mysqli_fetch_assoc($resultado_producto);
-
-mysqli_stmt_close($stmt_producto);
-
-    $stock_actual = $producto['stock'];
-
-    if($stock_actual >= $cantidad){
-
-        $precio = $producto['precio_venta'];
-
-        $subtotal = $precio * $cantidad;
-        $iva = $subtotal * 0.15;
-        $total = $subtotal + $iva;
-
-       $nuevo_stock = $stock_actual - $cantidad;
-
-mysqli_begin_transaction($conexion);
-
-try {
-
-    // 1. Descontar stock
-    $stmt_stock = mysqli_prepare(
-    $conexion,
-    "UPDATE productos
-     SET stock = ?
-     WHERE id = ?"
-);
-
-mysqli_stmt_bind_param(
-    $stmt_stock,
-    "ii",
-    $nuevo_stock,
-    $producto_id
-);
-
-if(!mysqli_stmt_execute($stmt_stock)){
-    mysqli_stmt_close($stmt_stock);
-    throw new Exception("No se pudo actualizar el stock.");
-}
-
-mysqli_stmt_close($stmt_stock);
+    $cantidad =
+        isset($_POST['cantidad'])
+        ? intval($_POST['cantidad'])
+        : 0;
 
 
-    // 2. Registrar la venta
-    $stmt_venta = mysqli_prepare(
-    $conexion,
-    "INSERT INTO ventas
-    (cliente_id, producto_id, cantidad,
-    subtotal, iva, total, fecha)
-    VALUES (?, ?, ?, ?, ?, ?, NOW())"
-);
+    if(
+        $cliente_id <= 0 ||
+        $producto_id <= 0 ||
+        $cantidad <= 0
+    ){
 
-mysqli_stmt_bind_param(
-    $stmt_venta,
-    "iiiddd",
-    $cliente_id,
-    $producto_id,
-    $cantidad,
-    $subtotal,
-    $iva,
-    $total
-);
+        echo "
+        <div class='mensaje'
+        style='color:red;'>
+            Datos de venta inválidos.
+        </div>
+        ";
 
-if(!mysqli_stmt_execute($stmt_venta)){
-    mysqli_stmt_close($stmt_venta);
-    throw new Exception("No se pudo registrar la venta.");
-}
+    }else{
 
-mysqli_stmt_close($stmt_venta);
+        $stmt_producto = mysqli_prepare(
+            $conexion,
+            "SELECT id, stock, precio_venta
+             FROM productos
+             WHERE id = ?"
+        );
 
-$venta_id = mysqli_insert_id($conexion);
+        mysqli_stmt_bind_param(
+            $stmt_producto,
+            "i",
+            $producto_id
+        );
 
-    // 3. Registrar el detalle de la venta
-    $stmt_detalle = mysqli_prepare(
-    $conexion,
-    "INSERT INTO detalle_ventas
-    (venta_id, producto_id, cantidad,
-    precio_unitario, subtotal)
-    VALUES (?, ?, ?, ?, ?)"
-);
+        mysqli_stmt_execute(
+            $stmt_producto
+        );
 
-mysqli_stmt_bind_param(
-    $stmt_detalle,
-    "iiidd",
-    $venta_id,
-    $producto_id,
-    $cantidad,
-    $precio,
-    $subtotal
-);
+        $resultado_producto =
+            mysqli_stmt_get_result(
+                $stmt_producto
+            );
 
-if(!mysqli_stmt_execute($stmt_detalle)){
-    mysqli_stmt_close($stmt_detalle);
-    throw new Exception("No se pudo registrar el detalle de la venta.");
-}
+        $producto =
+            mysqli_fetch_assoc(
+                $resultado_producto
+            );
 
-mysqli_stmt_close($stmt_detalle);
+        mysqli_stmt_close(
+            $stmt_producto
+        );
 
 
-    // 4. Confirmar toda la operación
-    mysqli_commit($conexion);
+        if(!$producto){
+
+            echo "
+            <div class='mensaje'
+            style='color:red;'>
+                Producto no encontrado.
+            </div>
+            ";
+
+        }else{
+
+            $stock_actual =
+                intval($producto['stock']);
+
+            if($stock_actual >= $cantidad){
+
+                $precio =
+                    floatval(
+                        $producto['precio_venta']
+                    );
+
+                $subtotal =
+                    $precio * $cantidad;
+
+                $iva =
+                    $subtotal * 0.15;
+
+                $total =
+                    $subtotal + $iva;
+
+                $nuevo_stock =
+                    $stock_actual - $cantidad;
 
 
-    echo "<div class='mensaje' style='color:green;'>
-            Venta realizada correctamente
-            <br><br>
+                mysqli_begin_transaction(
+                    $conexion
+                );
 
-            <a href='factura.php?id=".$venta_id."'
-               target='_blank'>
+                try {
 
-                <button>
-                    Ver Factura
-                </button>
+                    // 1. Descontar stock
+                    $stmt_stock =
+                        mysqli_prepare(
+                            $conexion,
+                            "UPDATE productos
+                             SET stock = ?
+                             WHERE id = ?"
+                        );
 
-            </a>
-          </div>";
+                    mysqli_stmt_bind_param(
+                        $stmt_stock,
+                        "ii",
+                        $nuevo_stock,
+                        $producto_id
+                    );
 
-} catch (Exception $e) {
+                    if(
+                        !mysqli_stmt_execute(
+                            $stmt_stock
+                        )
+                    ){
 
-    mysqli_rollback($conexion);
+                        mysqli_stmt_close(
+                            $stmt_stock
+                        );
 
-    echo "<div class='mensaje' style='color:red;'>
-            Error: ".htmlspecialchars($e->getMessage())."
-          </div>";
-}
+                        throw new Exception(
+                            "No se pudo actualizar el stock."
+                        );
+                    }
 
-}else{
+                    mysqli_stmt_close(
+                        $stmt_stock
+                    );
 
-    echo "<div class='mensaje' style='color:red;'>
-            Stock insuficiente
-          </div>";
-}
 
+                    // 2. Registrar la venta
+                    $stmt_venta =
+                        mysqli_prepare(
+                            $conexion,
+                            "INSERT INTO ventas
+                            (
+                                cliente_id,
+                                producto_id,
+                                cantidad,
+                                subtotal,
+                                iva,
+                                total,
+                                fecha
+                            )
+                            VALUES
+                            (
+                                ?, ?, ?, ?, ?, ?, NOW()
+                            )"
+                        );
+
+                    mysqli_stmt_bind_param(
+                        $stmt_venta,
+                        "iiiddd",
+                        $cliente_id,
+                        $producto_id,
+                        $cantidad,
+                        $subtotal,
+                        $iva,
+                        $total
+                    );
+
+                    if(
+                        !mysqli_stmt_execute(
+                            $stmt_venta
+                        )
+                    ){
+
+                        mysqli_stmt_close(
+                            $stmt_venta
+                        );
+
+                        throw new Exception(
+                            "No se pudo registrar la venta."
+                        );
+                    }
+
+                    $venta_id =
+                        mysqli_insert_id(
+                            $conexion
+                        );
+
+                    mysqli_stmt_close(
+                        $stmt_venta
+                    );
+
+
+                    // 3. Registrar detalle de venta
+                    $stmt_detalle =
+                        mysqli_prepare(
+                            $conexion,
+                            "INSERT INTO detalle_ventas
+                            (
+                                venta_id,
+                                producto_id,
+                                cantidad,
+                                precio_unitario,
+                                subtotal
+                            )
+                            VALUES
+                            (
+                                ?, ?, ?, ?, ?
+                            )"
+                        );
+
+                    mysqli_stmt_bind_param(
+                        $stmt_detalle,
+                        "iiidd",
+                        $venta_id,
+                        $producto_id,
+                        $cantidad,
+                        $precio,
+                        $subtotal
+                    );
+
+                    if(
+                        !mysqli_stmt_execute(
+                            $stmt_detalle
+                        )
+                    ){
+
+                        mysqli_stmt_close(
+                            $stmt_detalle
+                        );
+
+                        throw new Exception(
+                            "No se pudo registrar el detalle de la venta."
+                        );
+                    }
+
+                    mysqli_stmt_close(
+                        $stmt_detalle
+                    );
+
+
+                    // 4. Confirmar toda la operación
+                    mysqli_commit(
+                        $conexion
+                    );
+                   
+                    // CAMBIO: Se cambió el botón Ver Factura a color verde.
+                    // MOTIVO: Diferenciar visualmente la acción disponible después
+                    // de registrar correctamente la venta.
+                    // FECHA: 28/09/2026
+
+                    echo "
+                    <div class='mensaje'
+                    style='
+                        color:#155724;
+                        background:#d4edda;
+                        padding:20px;
+                        border-radius:8px;
+                        margin-bottom:20px;
+                    '>
+
+                        <strong>
+                            Venta registrada correctamente.
+                        </strong>
+
+                        <br><br>
+
+                        Número de venta:
+                        <strong>
+                            #" . intval($venta_id) . "
+                        </strong>
+
+                        <br><br>
+                    
+                        <a
+                        href='factura.php?id="
+                        . intval($venta_id) .
+                        "'
+                        target='_blank'>
+
+                            <button
+                            type='button'
+                            style='
+                                background:#198754;
+                                color:white;
+                                padding:10px 20px;
+                                border:none;
+                                border-radius:5px;
+                                cursor:pointer;
+                                font-weight:bold;
+                            '>
+
+                                Ver Factura
+
+                            </button>
+
+                        </a>
+
+                    </div>
+                    ";
+
+
+                } catch (Exception $e) {
+
+                    mysqli_rollback(
+                        $conexion
+                    );
+
+                    echo "
+                    <div class='mensaje'
+                    style='color:red;'>
+                        Error:
+                        " .
+                        htmlspecialchars(
+                            $e->getMessage()
+                        )
+                        . "
+                    </div>
+                    ";
+                }
+
+
+            }else{
+
+                echo "
+                <div class='mensaje'
+                style='color:red;'>
+                    Stock insuficiente
+                </div>
+                ";
+            }
+        }
+    }
 }
 
 ?>
 
 <!DOCTYPE html>
+
 <html lang="es">
 
 <head>
 
 <meta charset="UTF-8">
 
-<meta name="viewport"
+<meta
+name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<title>Módulo de Ventas</title>
+<title>
+Módulo de Ventas
+</title>
 
-<link rel="stylesheet"
+<link
+rel="stylesheet"
 href="css/estilos.css">
 
 <style>
@@ -229,6 +412,27 @@ href="css/estilos.css">
     margin:auto;
 }
 
+#resultadosClientes{
+    display:none;
+    background:white;
+    border:1px solid #ccc;
+    border-radius:5px;
+    margin-top:5px;
+    margin-bottom:15px;
+    max-height:220px;
+    overflow-y:auto;
+}
+
+.resultado-cliente{
+    padding:12px;
+    cursor:pointer;
+    border-bottom:1px solid #eee;
+}
+
+.resultado-cliente:hover{
+    background:#e9f2ff;
+}
+
 </style>
 
 </head>
@@ -236,130 +440,212 @@ href="css/estilos.css">
 <body>
 
 <header>
-    <h1>Módulo de Ventas</h1>
+
+<h1>
+Módulo de Ventas
+</h1>
+
 </header>
 
-<?php include("menu.php"); ?>
+
+<?php
+include("menu.php");
+?>
 
 
 <div class="ventas-contenedor">
 
 <a href="clientes.php">
-    Registrar nuevo cliente
+Registrar nuevo cliente
 </a>
 
 <br><br>
 
+
 <form method="POST">
 
-<label>Buscar por cédula</label>
 
-<input type="text"
-id="buscarCedula"
-placeholder="Ingrese cédula">
+<!--
+CAMBIO: Se agregó búsqueda dinámica de clientes por cédula, nombre o apellido.
+MOTIVO: Mostrar automáticamente las coincidencias y permitir seleccionar
+al cliente correcto sin abrir manualmente un selector.
+FECHA: 28/09/2026
+-->
 
-<label>Cliente</label>
+<label>
+Buscar cliente
+</label>
 
-<select name="cliente_id"
-id="clienteSelect"
+<input
+type="text"
+id="buscarCliente"
+placeholder="Buscar por cédula, nombres o apellidos"
+autocomplete="off">
+
+
+<!--
+CAMBIO: El ID del cliente seleccionado se guarda en un campo oculto.
+MOTIVO: Mantener la relación correcta entre la venta y el cliente seleccionado.
+FECHA: 28/09/2026
+-->
+
+<input
+type="hidden"
+name="cliente_id"
+id="clienteId"
 required>
 
-<option value="">
-Seleccione cliente
-</option>
+
+<div id="resultadosClientes">
+</div>
+
 
 <?php
 
-$clientes = mysqli_query($conexion,
-"SELECT * FROM clientes");
+$clientes = mysqli_query(
+    $conexion,
+    "SELECT id, nombre, cedula
+     FROM clientes
+     ORDER BY nombre ASC"
+);
 
-while($cliente = mysqli_fetch_assoc($clientes)){
+$lista_clientes = [];
 
-echo "<option value='".$cliente['id']."'>
-".$cliente['nombre']." - ".$cliente['cedula']."
-</option>";
+while(
+    $cliente =
+    mysqli_fetch_assoc($clientes)
+){
 
+    $lista_clientes[] = [
+        'id' =>
+            intval(
+                $cliente['id']
+            ),
+
+        'nombre' =>
+            $cliente['nombre'],
+
+        'cedula' =>
+            $cliente['cedula']
+    ];
 }
 
 ?>
 
-</select>
 
-<label>Producto</label>
+<label>
+Producto
+</label>
 
-<select name="producto_id" required>
+<select
+name="producto_id"
+required>
 
 <option value="">
 Seleccione producto
 </option>
 
+
 <?php
 
-$productos = mysqli_query($conexion,
-"SELECT * FROM productos");
+$productos =
+mysqli_query(
+    $conexion,
+    "SELECT id, nombre
+     FROM productos
+     ORDER BY nombre ASC"
+);
 
-while($producto = mysqli_fetch_assoc($productos)){
+while(
+    $producto =
+    mysqli_fetch_assoc($productos)
+){
 
-echo "<option value='".$producto['id']."'>
-".$producto['nombre']."
-</option>";
+?>
 
+<option
+value="<?php
+echo intval(
+    $producto['id']
+);
+?>">
+
+<?php
+echo htmlspecialchars(
+    $producto['nombre']
+);
+?>
+
+</option>
+
+<?php
 }
-
 ?>
 
 </select>
 
-<label>Cantidad</label>
 
-<input type="number"
+<label>
+Cantidad
+</label>
+
+<input
+type="number"
 name="cantidad"
 min="1"
 placeholder="Ingrese cantidad"
 required>
 
-<label>Unidad</label>
+
+<label>
+Unidad
+</label>
 
 <select name="unidad">
 
-<option value="Unidades">Unidades</option>
+<option value="Unidades">
+Unidades
+</option>
 
-<option value="Libras">Libras</option>
+<option value="Libras">
+Libras
+</option>
 
-<option value="Litros">Litros</option>
+<option value="Litros">
+Litros
+</option>
 
-<option value="Kg">Kg</option>
+<option value="Kg">
+Kg
+</option>
 
 </select>
 
-<button type="submit" name="vender">
-    Vender
-</button>
 
-<a href="generar_pdf.php" target="_blank">
+<!--
+CAMBIO: Se mantiene únicamente el botón para registrar la venta.
+MOTIVO: La factura debe mostrarse solo después de que la venta exista.
+FECHA: 28/09/2026
+-->
 
-<button type="button"
-style="
-background:#198754;
-color:white;
-padding:10px 20px;
-border:none;
-border-radius:5px;
-cursor:pointer;
-margin-top:10px;
-">
+<button
+type="submit"
+name="vender">
 
-Generar Factura PDF
+Registrar Venta
 
 </button>
-
-</a>
 
 </form>
 
+
 <hr>
 
-<h3>Productos Disponibles</h3>
+
+<h3>
+Productos Disponibles
+</h3>
+
 
 <div style="overflow-x:auto;">
 
@@ -367,37 +653,87 @@ Generar Factura PDF
 
 <tr>
 
-<th>Código</th>
-<th>Producto</th>
-<th>Precio</th>
-<th>Stock</th>
+<th>
+Código
+</th>
+
+<th>
+Producto
+</th>
+
+<th>
+Precio
+</th>
+
+<th>
+Stock
+</th>
 
 </tr>
 
+
 <?php
 
-$lista = mysqli_query($conexion,
-"SELECT * FROM productos");
+$lista =
+mysqli_query(
+    $conexion,
+    "SELECT
+        codigo,
+        nombre,
+        precio_venta,
+        stock
+     FROM productos
+     ORDER BY nombre ASC"
+);
 
-while($p = mysqli_fetch_assoc($lista)){
+while(
+    $p =
+    mysqli_fetch_assoc($lista)
+){
 
 ?>
 
 <tr>
 
-<td><?php echo $p['codigo']; ?></td>
-
-<td><?php echo $p['nombre']; ?></td>
-
 <td>
-$<?php echo $p['precio_venta']; ?>
+<?php
+echo htmlspecialchars(
+    $p['codigo']
+);
+?>
 </td>
 
-<td><?php echo $p['stock']; ?></td>
+<td>
+<?php
+echo htmlspecialchars(
+    $p['nombre']
+);
+?>
+</td>
+
+<td>
+$
+<?php
+echo number_format(
+    $p['precio_venta'],
+    2
+);
+?>
+</td>
+
+<td>
+<?php
+echo intval(
+    $p['stock']
+);
+?>
+</td>
 
 </tr>
 
-<?php } ?>
+<?php
+}
+?>
 
 </table>
 
@@ -405,37 +741,152 @@ $<?php echo $p['precio_venta']; ?>
 
 </div>
 
+
 <script>
 
-const buscarCedula =
-document.getElementById("buscarCedula");
+/*
+CAMBIO: Se implementó autocompletado visual de clientes.
+MOTIVO: Mostrar inmediatamente todas las coincidencias
+por cédula, nombre o apellido mientras el usuario escribe.
+FECHA: 28/09/2026
+*/
 
-const clienteSelect =
-document.getElementById("clienteSelect");
+const buscarCliente =
+document.getElementById(
+    "buscarCliente"
+);
 
-buscarCedula.addEventListener("keyup", function(){
+const clienteId =
+document.getElementById(
+    "clienteId"
+);
 
-    let cedula =
-    buscarCedula.value.toLowerCase();
+const resultadosClientes =
+document.getElementById(
+    "resultadosClientes"
+);
 
-    for(let i = 0;
-        i < clienteSelect.options.length;
-        i++){
+const clientes =
+<?php
+echo json_encode(
+    $lista_clientes,
+    JSON_UNESCAPED_UNICODE
+);
+?>;
 
-        let texto =
-        clienteSelect.options[i]
-        .text.toLowerCase();
 
-        if(texto.includes(cedula)){
+buscarCliente.addEventListener(
+"input",
+function(){
 
-            clienteSelect.selectedIndex = i;
-            break;
-        }
+    const busqueda =
+    buscarCliente.value
+    .toLowerCase()
+    .trim();
+
+    clienteId.value = "";
+
+    resultadosClientes.innerHTML = "";
+
+    if(busqueda === ""){
+
+        resultadosClientes.style.display =
+        "none";
+
+        return;
     }
+
+
+    const coincidencias =
+    clientes.filter(
+    function(cliente){
+
+        const texto =
+        (
+            cliente.nombre +
+            " " +
+            cliente.cedula
+        )
+        .toLowerCase();
+
+        return texto.includes(
+            busqueda
+        );
+
+    });
+
+
+    if(
+        coincidencias.length === 0
+    ){
+
+        resultadosClientes.innerHTML =
+        "<div class='resultado-cliente'>"
+        +
+        "No se encontraron clientes"
+        +
+        "</div>";
+
+        resultadosClientes.style.display =
+        "block";
+
+        return;
+    }
+
+
+    coincidencias.forEach(
+    function(cliente){
+
+        const opcion =
+        document.createElement(
+            "div"
+        );
+
+        opcion.className =
+            "resultado-cliente";
+
+        opcion.textContent =
+            cliente.nombre
+            +
+            " - "
+            +
+            cliente.cedula;
+
+
+        opcion.addEventListener(
+        "click",
+        function(){
+
+            buscarCliente.value =
+                cliente.nombre
+                +
+                " - "
+                +
+                cliente.cedula;
+
+            clienteId.value =
+                cliente.id;
+
+            resultadosClientes.style.display =
+                "none";
+
+        });
+
+
+        resultadosClientes.appendChild(
+            opcion
+        );
+
+    });
+
+
+    resultadosClientes.style.display =
+        "block";
+
 });
 
 </script>
 
 </body>
-</html>
 
+</html>
