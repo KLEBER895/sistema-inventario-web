@@ -194,6 +194,27 @@ required>
 Ingresar
 </button>
 
+<!--
+CAMBIO: Se agregó acceso al flujo de recuperación de contraseña.
+MOTIVO: Permitir que el usuario solicite un enlace temporal
+de recuperación mediante correo electrónico.
+FECHA: 28/09/2026
+-->
+
+<a
+href="olvide_clave.php"
+style="
+    display:block;
+    text-align:center;
+    margin-top:15px;
+    color:#1565c0;
+    text-decoration:none;
+    font-weight:bold;
+"
+>
+¿Olvidó su contraseña?
+</a>
+
 </form>
 
 <?php
