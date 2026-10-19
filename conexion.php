@@ -1,28 +1,49 @@
+
 <?php
 
-$servidor = "127.0.0.1";
-$usuario = "root";
-$contrasena = "";
-$base_datos = "inventario_web";
-$puerto = 3307;
+/*
+CAMBIO: 19/10/2026
+MOTIVO: Separar las credenciales de MySQL del código
+versionado en GitHub y preparar el despliegue.
+Se conserva la variable $conexion para compatibilidad
+con los módulos existentes.
+*/
 
-$conexion = mysqli_connect(
-    $servidor,
-    $usuario,
-    $contrasena,
-    $base_datos,
-    $puerto
-);
+$config = require __DIR__ . '/config_db.php';
 
-if (!$conexion) {
+$servidor   = $config['servidor'];
+$usuario    = $config['usuario'];
+$contrasena = $config['contrasena'];
+$base_datos = $config['base_datos'];
+$puerto     = (int) $config['puerto'];
 
-    error_log(
-        "Error de conexión MySQL: " . mysqli_connect_error()
+try {
+    $conexion = mysqli_connect(
+        $servidor,
+        $usuario,
+        $contrasena,
+        $base_datos,
+        $puerto
     );
 
-    die("No se pudo conectar con la base de datos.");
+    if (!$conexion) {
+        throw new RuntimeException(
+            'No se pudo establecer la conexión MySQL.'
+        );
+    }
+
+    if (!mysqli_set_charset($conexion, 'utf8mb4')) {
+        throw new RuntimeException(
+            'No se pudo configurar utf8mb4.'
+        );
+    }
+
+} catch (Throwable $error) {
+
+    error_log(
+        'Error de conexión MySQL: ' . $error->getMessage()
+    );
+
+    http_response_code(500);
+    exit('No se pudo conectar con la base de datos.');
 }
-
-mysqli_set_charset($conexion, "utf8mb4");
-
-?>
