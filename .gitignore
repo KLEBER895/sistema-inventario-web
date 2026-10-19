@@ -46,3 +46,5 @@ enviar_correo_prueba.php
 # MOTIVO: Proteger las credenciales privadas de MySQL
 # durante el despliegue del Sistema de Inventario Web.
 config_db.php
+
+config_db_infinityfree.php
