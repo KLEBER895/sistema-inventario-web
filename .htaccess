@@ -1,0 +1,21 @@
+# CAMBIO: 19/10/2026
+# MOTIVO: La carpeta del repositorio es la raíz pública del sitio.
+# Se bloquea el acceso web a todo lo que no es parte de la aplicación.
+
+Options -Indexes
+
+# Historial de git, scripts de servidor, SQL, dependencias y respaldos
+RedirectMatch 404 (^|/)(\.git|\.github|scripts|database|vendor|respaldos)(/|$)
+
+# Credenciales privadas
+RedirectMatch 404 (^|/)config_[^/]*\.php$
+
+# CAMBIO: 21/10/2026
+# MOTIVO: Las credenciales ahora están en .env. Se bloquea
+# cualquier archivo oculto (.env, .env.example, .gitignore...).
+RedirectMatch 404 (^|/)\.[^/]+$
+
+# Archivos de documentación, SQL y configuración
+<FilesMatch "\.(sql|md|lock|json|log|bak|sh|yml|example)$">
+    Require all denied
+</FilesMatch>

@@ -14,19 +14,30 @@ if($_SESSION['rol'] !== 'Administrador'){
     exit();
 }
 
-$base_datos = "inventario_web";
+/*
+CAMBIO: 21/10/2026
+MOTIVO: El respaldo usaba C:\xampp\mysql\bin\mysqldump, el
+usuario root y la base inventario_web fijos en el código.
+Ahora usa las mismas credenciales de la conexión (.env) y
+la carpeta definida en BACKUP_DIR.
+*/
+$config = require __DIR__ . '/configuracion.php';
+require __DIR__ . '/respaldo.php';
 
-$fecha = date("Y-m-d_H-i-s");
+try {
 
-$archivo = "respaldos/backup_" . $fecha . ".sql";
+    generar_respaldo($config);
+    $mensaje = 'Respaldo generado correctamente';
 
-$comando = "C:\\xampp\\mysql\\bin\\mysqldump -u root $base_datos > $archivo";
+} catch (Throwable $error) {
 
-system($comando);
+    error_log('Error al generar respaldo: ' . $error->getMessage());
+    $mensaje = 'No se pudo generar el respaldo. Revise el log del servidor.';
+}
 
 echo "<script>
 
-alert('Respaldo generado correctamente');
+alert(" . json_encode($mensaje) . ");
 
 window.location='lista_respaldos.php';
 
