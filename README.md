@@ -43,4 +43,25 @@ El sistema trabaja con roles simples:
 
 ## Estado del proyecto
 
-Proyecto académico en desarrollo como parte de Web Application Capstone.
+Proyecto académico en desarrollo para la materia Web Application Capstone, orientado a la creación de un Sistema de Inventario Web.
+
+## Buenas prácticas de seguridad
+
+Para fortalecer la seguridad del Sistema de Inventario Web se consideran las siguientes prácticas:
+
+- Las contraseñas deben almacenarse utilizando hash seguro y nunca en texto plano.
+- Las consultas a la base de datos deben realizarse de forma parametrizada para prevenir inyección SQL.
+- La autenticación se gestiona mediante sesión y cookies.
+- Los roles y permisos deben verificarse en el servidor antes de permitir acciones administrativas.
+- Los mensajes de error no deben mostrar información sensible del sistema.
+- Las acciones importantes del sistema deben registrarse sin almacenar contraseñas ni datos sensibles.
+
+- ## Mejoras de seguridad pendientes
+
+Como parte de la mejora continua del Sistema de Inventario Web, se consideran las siguientes acciones:
+
+- Implementar límite de intentos en el inicio de sesión.
+- Incorporar una tabla de auditoría para registrar acciones importantes.
+- Revisar el escape y sanitización de datos mostrados en pantalla.
+- Configurar el entorno de producción para no mostrar errores sensibles.
+- Revisar periódicamente las dependencias del proyecto.
