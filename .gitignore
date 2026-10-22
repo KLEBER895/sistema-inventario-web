@@ -41,3 +41,10 @@ dompdf/vendor/dompdf/dompdf/lib/fonts/*.json
 
 # Archivo temporal de prueba SMTP
 enviar_correo_prueba.php
+
+# CAMBIO: 19/10/2026
+# MOTIVO: Proteger las credenciales privadas de MySQL
+# durante el despliegue del Sistema de Inventario Web.
+config_db.php
+
+config_db_infinityfree.php

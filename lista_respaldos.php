@@ -67,7 +67,15 @@ Generar Nuevo Respaldo
 
 <?php
 
-$archivos = glob("respaldos/*.sql");
+/*
+CAMBIO: 21/10/2026
+MOTIVO: Leer los respaldos desde BACKUP_DIR y descargarlos
+mediante descargar_respaldo.php (la carpeta no es pública).
+*/
+$config = require __DIR__ . '/configuracion.php';
+
+$archivos = glob($config['respaldos']['carpeta'] . '/*.sql') ?: [];
+rsort($archivos);
 
 foreach($archivos as $archivo){
 
@@ -77,13 +85,13 @@ foreach($archivos as $archivo){
 
 <td>
 
-<?php echo basename($archivo); ?>
+<?php echo htmlspecialchars(basename($archivo)); ?>
 
 </td>
 
 <td>
 
-<a href="<?php echo $archivo; ?>" download>
+<a href="descargar_respaldo.php?archivo=<?php echo urlencode(basename($archivo)); ?>">
 
 Descargar
 

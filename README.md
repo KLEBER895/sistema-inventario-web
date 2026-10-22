@@ -56,7 +56,7 @@ Para fortalecer la seguridad del Sistema de Inventario Web se consideran las sig
 - Los mensajes de error no deben mostrar información sensible del sistema.
 - Las acciones importantes del sistema deben registrarse sin almacenar contraseñas ni datos sensibles.
 
-- ## Mejoras de seguridad pendientes
+## Mejoras de seguridad pendientes
 
 Como parte de la mejora continua del Sistema de Inventario Web, se consideran las siguientes acciones:
 
@@ -65,3 +65,67 @@ Como parte de la mejora continua del Sistema de Inventario Web, se consideran la
 - Revisar el escape y sanitización de datos mostrados en pantalla.
 - Configurar el entorno de producción para no mostrar errores sensibles.
 - Revisar periódicamente las dependencias del proyecto.
+
+## Configuración local (XAMPP)
+
+Toda la configuración está en variables de entorno (ver `.env.example`).
+
+```bash
+cp .env.example .env      # en Windows: copy .env.example .env
+composer install
+```
+
+En `.env` ajustar `DB_*`, `MAIL_*` y, en Windows,
+`MYSQLDUMP_PATH=C:\xampp\mysql\bin\mysqldump.exe`.
+El archivo `.env` nunca se sube a GitHub.
+
+## Despliegue automático (AlwaysData)
+
+Cada cambio integrado en `main` se publica solo: GitHub Actions revisa la
+sintaxis PHP y luego, por SSH, ejecuta `scripts/desplegar.sh` en el servidor
+(`git pull`, `composer install`, verificación de `.env` y migraciones de base
+de datos con respaldo previo). En cada Pull Request solo se ejecutan las
+verificaciones. El detalle de los cambios está en [CORRECCIONES.md](CORRECCIONES.md).
+
+### Configuración inicial (una sola vez)
+
+1. **Servidor (SSH en AlwaysData):**
+   ```bash
+   git clone https://github.com/KLEBER895/sistema-inventario-web.git ~/inventario
+   cd ~/inventario
+   cp .env.example .env && nano .env   # APP_ENV=produccion, APP_DEBUG=false, ...
+   chmod 600 .env
+   mkdir -p ~/respaldos                 # BACKUP_DIR=/home/CUENTA/respaldos
+   composer install --no-dev --optimize-autoloader
+   php scripts/verificar_entorno.php
+   ```
+2. **Base de datos:** importar la exportación completa de la base local y luego
+   registrar las migraciones existentes como ya aplicadas:
+   ```bash
+   mysql -h mysql-CUENTA.alwaysdata.net -u USUARIO -p BASE < inventario_completo.sql
+   php scripts/migrar.php --marcar-aplicadas
+   php scripts/crear_admin.php
+   ```
+3. **Sitio web (panel de AlwaysData):** tipo PHP, carpeta raíz `/inventario/`, activar HTTPS.
+4. **Llave de despliegue** (en tu PC):
+   ```bash
+   ssh-keygen -t ed25519 -f deploy_inventario -N "" -C "github-actions"
+   ssh-copy-id -i deploy_inventario.pub USUARIO@ssh-CUENTA.alwaysdata.net
+   ssh-keyscan ssh-CUENTA.alwaysdata.net
+   ```
+5. **GitHub** (*Settings → Environments → New environment* `produccion`):
+   - *Environment variables:* `SSH_HOST`, `SSH_USER`, `DEPLOY_PATH` (`inventario`)
+     y `APP_URL` (`https://CUENTA.alwaysdata.net`).
+   - *Environment secrets:* `SSH_PRIVATE_KEY` (contenido de `deploy_inventario`)
+     y `SSH_KNOWN_HOSTS` (salida de `ssh-keyscan`).
+   - Después borrar la llave privada del PC.
+
+### Reglas del equipo
+
+- Todo cambio entra a `main` por Pull Request: lo que llega a `main` se publica.
+- Los cambios de base de datos van como archivo nuevo en `database/migraciones/`.
+- Una variable de entorno nueva se agrega a `.env.example` y al `.env` del servidor
+  (y a `scripts/verificar_entorno.php` si es obligatoria) **antes** de integrar el PR.
+- Nunca editar archivos directamente en el servidor: el despliegue se detiene
+  si encuentra cambios hechos a mano.
+- Los respaldos quedan en `BACKUP_DIR` (`~/respaldos` en el servidor), fuera de la web.

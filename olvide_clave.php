@@ -26,9 +26,13 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 
-// Cargar configuración SMTP privada.
-// config_mail.php está protegido por .gitignore.
-$config_mail = require __DIR__ . '/config_mail.php';
+/*
+CAMBIO: 21/10/2026
+MOTIVO: La configuración SMTP se lee de variables de entorno
+(MAIL_* en .env) en lugar del archivo config_mail.php.
+$config se define en conexion.php.
+*/
+$config_mail = $config['mail'];
 
 
 $mensaje = '';
@@ -194,45 +198,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
             /*
-            6. Construir automáticamente la URL.
+            6. Construir la URL del enlace.
 
-            Esto permite que funcione tanto en localhost
-            como cuando usamos el enlace temporal de Cloudflare.
+            CAMBIO: 21/10/2026
+            MOTIVO: Si APP_URL está definida se usa siempre.
+            Armar el enlace con HTTP_HOST permite que un atacante
+            envíe una cabecera Host falsa y el correo legítimo
+            lleve el token a su dominio (envenenamiento del
+            enlace de recuperación). La detección automática
+            queda solo para pruebas locales sin APP_URL.
             */
-            if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+            $base_url = $config['app']['url'];
 
-                $protocolo =
-                    $_SERVER['HTTP_X_FORWARDED_PROTO'];
+            if ($base_url === '') {
 
-            } elseif (
-                isset($_SERVER['HTTPS']) &&
-                $_SERVER['HTTPS'] === 'on'
-            ) {
+                if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
 
-                $protocolo = 'https';
+                    $protocolo =
+                        $_SERVER['HTTP_X_FORWARDED_PROTO'];
 
-            } else {
+                } elseif (
+                    isset($_SERVER['HTTPS']) &&
+                    $_SERVER['HTTPS'] === 'on'
+                ) {
 
-                $protocolo = 'http';
+                    $protocolo = 'https';
+
+                } else {
+
+                    $protocolo = 'http';
+                }
+
+
+                $directorio =
+                    rtrim(
+                        dirname($_SERVER['PHP_SELF']),
+                        '/\\'
+                    );
+
+
+                $base_url =
+                    $protocolo
+                    . '://'
+                    . $_SERVER['HTTP_HOST']
+                    . $directorio;
             }
 
 
-            $host =
-                $_SERVER['HTTP_HOST'];
-
-
-            $directorio =
-                rtrim(
-                    dirname($_SERVER['PHP_SELF']),
-                    '/\\'
-                );
-
-
             $enlace_recuperacion =
-                $protocolo
-                . '://'
-                . $host
-                . $directorio
+                $base_url
                 . '/restablecer_clave.php?token='
                 . urlencode($token);
 
@@ -279,10 +293,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 distinto al host configurado.
 
                 FECHA: 28/09/2026
-                */
-                $mail->SMTPAutoTLS = false;
 
-                $mail->SMTPSecure = false;
+                CAMBIO: 21/10/2026
+                MOTIVO: El cifrado se elige con MAIL_ENCRYPTION.
+                En producción se usa tls (STARTTLS) para que la
+                clave SMTP y el enlace no viajen en texto plano.
+                "ninguno" conserva el comportamiento anterior,
+                solo para pruebas locales.
+                */
+                if ($config_mail['encryption'] === 'ssl') {
+
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+
+                } elseif ($config_mail['encryption'] === 'tls') {
+
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+
+                } else {
+
+                    $mail->SMTPAutoTLS = false;
+
+                    $mail->SMTPSecure = false;
+                }
 
                 $mail->Port =
                 $config_mail['port'];

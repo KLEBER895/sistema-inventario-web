@@ -1,0 +1,93 @@
+# CAMBIO: 19/10/2026
+# MOTIVO: Desplegar automáticamente en AlwaysData cada vez
+# que se integra un cambio en main.
+#
+# CAMBIO: 21/10/2026
+# MOTIVO: Separar datos públicos (variables) de datos sensibles
+# (secretos) y agruparlos en el environment "produccion".
+#
+# Configurar en Settings → Environments → produccion:
+#
+#   Variables (no sensibles):
+#     SSH_HOST         ssh-CUENTA.alwaysdata.net
+#     SSH_USER         usuario SSH de AlwaysData
+#     DEPLOY_PATH      carpeta del proyecto en el servidor, ej: inventario
+#     APP_URL          https://CUENTA.alwaysdata.net (para la prueba final)
+#
+#   Secretos:
+#     SSH_PRIVATE_KEY  llave privada usada solo para despliegue
+#     SSH_KNOWN_HOSTS  salida de: ssh-keyscan ssh-CUENTA.alwaysdata.net
+#
+# Las credenciales de MySQL y SMTP NO pasan por GitHub:
+# viven solo en el archivo .env del servidor.
+
+name: Desplegar en AlwaysData
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Evita dos despliegues al mismo tiempo.
+concurrency:
+  group: despliegue-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Revisar sintaxis PHP
+        run: |
+          find . -name '*.php' \
+            -not -path './dompdf/*' \
+            -not -path './vendor/*' \
+            -print0 | xargs -0 -n1 php -l
+
+      - name: Validar composer.json
+        run: composer validate --no-check-publish --no-check-all
+
+      - name: Comprobar que no se subieron credenciales
+        run: |
+          prohibidos=$(git ls-files | grep -E '(^|/)(\.env|config_db\.php|config_mail\.php)$' || true)
+          if [ -n "$prohibidos" ]; then
+            echo "::error::Archivos privados en el repositorio: $prohibidos"
+            exit 1
+          fi
+
+  desplegar:
+    needs: verificar
+    # En Pull Requests solo se verifica; se publica al llegar a main.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+      url: ${{ vars.APP_URL }}
+    steps:
+      - name: Configurar llave SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Ejecutar despliegue en el servidor
+        env:
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_USER: ${{ vars.SSH_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          ssh "$SSH_USER@$SSH_HOST" "bash ~/$DEPLOY_PATH/scripts/desplegar.sh"
+
+      - name: Comprobar que el sitio responde
+        if: vars.APP_URL != ''
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: curl --fail --silent --show-error --retry 3 --retry-delay 5 -o /dev/null "$APP_URL/login.php"
