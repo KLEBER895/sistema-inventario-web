@@ -59,6 +59,18 @@ jobs:
             exit 1
           fi
 
+      # CAMBIO: 21/10/2026
+      # MOTIVO: Los volcados de phpMyAdmin traen datos reales
+      # (clientes, hashes de contraseñas). Solo se permiten
+      # archivos .sql de estructura en database/migraciones/.
+      - name: Comprobar que no se subieron volcados de base de datos
+        run: |
+          volcados=$(git ls-files '*.sql' | grep -v '^database/migraciones/' || true)
+          if [ -n "$volcados" ]; then
+            echo "::error::Archivos SQL fuera de database/migraciones/: $volcados"
+            exit 1
+          fi
+
   desplegar:
     needs: verificar
     # En Pull Requests solo se verifica; se publica al llegar a main.
