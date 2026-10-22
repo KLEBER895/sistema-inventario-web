@@ -2,9 +2,10 @@
 respaldos/
 backups/
 
-# Archivos SQL que pueden contener datos privados
+# Archivos SQL que pueden contener datos privados.
+# Solo se versionan las migraciones (estructura, sin datos).
+/*.sql
 database/*.sql
-!database/estructura_inventario_web.sql
 
 # Archivos comprimidos
 *.zip

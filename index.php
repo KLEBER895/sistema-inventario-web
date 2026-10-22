@@ -1,4 +1,3 @@
-
 <?php
 
 session_start();
@@ -81,8 +80,14 @@ WHERE stock <= 10
 ORDER BY stock ASC");
 
 
+/*
+CAMBIO: 21/10/2026
+MOTIVO: Con la base vacía SUM() devuelve NULL; eso rompía
+number_format() y dejaba un valor vacío en el gráfico.
+COALESCE devuelve 0 cuando no hay ventas.
+*/
 $consulta_total = mysqli_query($conexion,
-"SELECT SUM(total) AS dinero_total FROM ventas"
+"SELECT COALESCE(SUM(total), 0) AS dinero_total FROM ventas"
 );
 
 $total_ventas = mysqli_fetch_assoc($consulta_total);
@@ -90,7 +95,7 @@ $total_ventas = mysqli_fetch_assoc($consulta_total);
 $consulta_ganancia = mysqli_query($conexion,
 
 "SELECT
-SUM(v.cantidad * p.ganancia) AS ganancia_total
+COALESCE(SUM(v.cantidad * p.ganancia), 0) AS ganancia_total
 
 FROM ventas v
 

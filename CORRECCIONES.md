@@ -213,8 +213,76 @@ sensibles"** (`APP_ENV=produccion` / `APP_DEBUG=false`, controlado por
 - **Chart.js sin versión fija** en `index.php`
   (`https://cdn.jsdelivr.net/npm/chart.js`): fijar una versión exacta para
   que una actualización externa no rompa el panel.
-- **Esquema completo de la base:** el repositorio solo tiene `productos.sql`
-  y un complemento. Agregar una exportación de la estructura completa (sin
-  datos) permitiría crear un servidor nuevo sin depender de una base local.
+- ~~**Esquema completo de la base**~~: resuelto en la sección 8.
 - **`dompdf/` copiado dentro del repositorio:** podría instalarse con
   Composer igual que PHPMailer.
+
+---
+
+## 8. Estructura de la base como migración (sin datos)
+
+**Fecha:** 21/10/2026 · **Rama:** `feature/estructura-inicial-bd`
+
+### Problema
+
+Al desplegar, la base de AlwaysData estaba vacía y el repositorio no podía
+crearla. Solo había `productos.sql` (una versión vieja de una sola tabla) y
+`database/estructura_inventario_web.sql` (un complemento que suponía una base
+existente). La única fuente de la estructura real era la exportación de
+phpMyAdmin de una PC, y esa exportación trae **datos reales**:
+
+| Dato en la exportación | Por qué no puede ir al repositorio |
+|---|---|
+| Clientes con nombre, cédula, teléfono y dirección | Datos personales de personas reales |
+| Usuarios con correo y hash de contraseña | Los hashes se pueden atacar por fuerza bruta sin conexión |
+| Tokens de recuperación (`recuperacion_claves`) | Historial de seguridad de las cuentas |
+| Ventas, compras y productos de prueba | Datos de uso; no son necesarios para que el sistema funcione |
+| Contadores `AUTO_INCREMENT` | Revelan cuántos registros había |
+
+### Solución
+
+| Archivo | Cambio |
+|---|---|
+| `database/migraciones/001_estructura_inicial.sql` | **Nuevo.** Las 7 tablas (`clientes`, `productos`, `usuarios`, `compras`, `ventas`, `detalle_ventas`, `recuperacion_claves`) con sus llaves e índices, tal como están en la base local. Sin un solo `INSERT`. |
+| `productos.sql`, `database/estructura_inventario_web.sql` | **Eliminados.** Los reemplaza la migración 001. |
+| `.gitignore` | Ignora cualquier `.sql` en la raíz (ahí suelen quedar las exportaciones). |
+| `.github/workflows/desplegar.yml` | Nuevo chequeo: falla si hay archivos `.sql` versionados fuera de `database/migraciones/`. |
+| `index.php` | Se quitó la línea en blanco antes de `<?php`, que rompía `session_start()`, igual que pasaba en `conexion.php`. Los totales usan `COALESCE(SUM(...), 0)`: con la base vacía devolvían `NULL` y rompían el gráfico del panel. |
+
+El único dato que el sistema necesita para arrancar es el primer
+administrador, y se crea con un script: `php scripts/crear_admin.php`.
+Los productos, clientes y demás usuarios se cargan desde la propia aplicación.
+
+### Cómo se usa
+
+| Situación | Comando |
+|---|---|
+| Servidor o PC con base **vacía** | `php scripts/migrar.php` y después `php scripts/crear_admin.php` |
+| PC con la base de XAMPP **que ya tiene las tablas** | Una sola vez: `php scripts/migrar.php --marcar-aplicadas` |
+| Cada despliegue | Automático: `scripts/desplegar.sh` ejecuta `migrar.php` |
+
+### Cómo se verificó
+
+Prueba completa en un contenedor MariaDB 10.11 vacío, con PHP 8.2 y `mysqli`:
+
+- `migrar.php` generó el respaldo previo, aplicó `001_estructura_inicial.sql`
+  y creó las 7 tablas. La segunda ejecución respondió `Base de datos al día.`
+- `crear_admin.php` creó el administrador con hash `$2y$`. Al repetirlo, lo
+  rechazó por duplicado.
+- El login con ese usuario redirigió a `index.php`. Las páginas `index`,
+  `productos`, `clientes`, `ventas`, `compras`, `reportes`, `usuarios`,
+  `historial_ventas`, `historial_compras`, `lista_respaldos` y `perfil`
+  respondieron 200 sin errores ni avisos de PHP, y se pudo registrar un cliente.
+
+### Observaciones del esquema (no se cambiaron)
+
+Se copió la estructura tal cual para no romper el código. Quedan para una
+migración futura:
+
+- `ventas.fecha` tiene `ON UPDATE current_timestamp()`: si se edita una venta,
+  cambia su fecha. Lo mismo ocurre con `productos.fecha_actualizacion`, pero
+  ahí es intencional.
+- `ventas.cliente_id` y `ventas.producto_id` no tienen llave foránea: se puede
+  borrar un cliente que tiene ventas.
+- La columna `clientes.dirección` lleva tilde. Funciona, pero obliga a usar
+  comillas invertidas en el SQL y a escribir `$_POST['dirección']` en PHP.

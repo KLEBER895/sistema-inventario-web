@@ -79,6 +79,15 @@ En `.env` ajustar `DB_*`, `MAIL_*` y, en Windows,
 `MYSQLDUMP_PATH=C:\xampp\mysql\bin\mysqldump.exe`.
 El archivo `.env` nunca se sube a GitHub.
 
+Base de datos:
+
+- **Base nueva y vacía:** `php scripts/migrar.php` crea todas las tablas y
+  `php scripts/crear_admin.php` crea el primer administrador.
+- **Base que ya tenías con tablas y datos:** ejecutar una sola vez
+  `php scripts/migrar.php --marcar-aplicadas`, para que no intente volver a crearlas.
+
+El repositorio no guarda datos: ni clientes, ni ventas, ni usuarios.
+
 ## Despliegue automático (AlwaysData)
 
 Cada cambio integrado en `main` se publica solo: GitHub Actions revisa la
@@ -99,12 +108,11 @@ verificaciones. El detalle de los cambios está en [CORRECCIONES.md](CORRECCIONE
    composer install --no-dev --optimize-autoloader
    php scripts/verificar_entorno.php
    ```
-2. **Base de datos:** importar la exportación completa de la base local y luego
-   registrar las migraciones existentes como ya aplicadas:
+2. **Base de datos** (vacía, creada en el panel de AlwaysData). No se importa
+   ninguna exportación: las tablas salen de `database/migraciones/`.
    ```bash
-   mysql -h mysql-CUENTA.alwaysdata.net -u USUARIO -p BASE < inventario_completo.sql
-   php scripts/migrar.php --marcar-aplicadas
-   php scripts/crear_admin.php
+   php scripts/migrar.php        # crea las tablas (001_estructura_inicial.sql)
+   php scripts/crear_admin.php   # primer administrador
    ```
 3. **Sitio web (panel de AlwaysData):** tipo PHP, carpeta raíz `/inventario/`, activar HTTPS.
 4. **Llave de despliegue** (en tu PC):
