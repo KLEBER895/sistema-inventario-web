@@ -1,9 +1,15 @@
 <?php
 
-session_start();
+/*
+CAMBIO: 27/10/2026
+MOTIVO: Centralizar el inicio de sesion mediante sesion.php
+para aplicar los atributos de seguridad de las cookies.
+Se conserva la logica de autenticacion existente.
+*/
+
+require __DIR__ . '/sesion.php';
 
 include("conexion.php");
-
 if(isset($_POST['ingresar'])){
 
     $usuario = trim($_POST['usuario']);
