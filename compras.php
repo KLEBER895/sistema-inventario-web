@@ -1,6 +1,11 @@
 <?php
 
-session_start();
+/*
+CAMBIO: 27/10/2026
+MOTIVO: Centralizar el inicio de sesion mediante sesion.php.
+Se conservan las validaciones y funciones del modulo.
+*/
+require __DIR__ . '/sesion.php';
 
 $tiempo_inactivo = 1800;
 
