@@ -1,6 +1,13 @@
 <?php
 
-session_start();
+/*
+CAMBIO: 27/10/2026
+MOTIVO: Centralizar el inicio de sesion mediante sesion.php
+para aplicar los atributos de seguridad de las cookies.
+Se conservan las validaciones de autenticacion,
+roles e inactividad del modulo Clientes.
+*/
+require __DIR__ . '/sesion.php';
 
 $tiempo_inactivo = 1800;
 
